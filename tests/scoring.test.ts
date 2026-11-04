@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { challengeScore, formatRational, normalRawScore, score, validateScoreInput } from "../src/core/scoring";
-import { solveFcTarget, solveNormalTarget } from "../src/core/solver";
+import { solveFcTarget, solveNormalTarget, solveNormalUnrestrictedTarget } from "../src/core/solver";
 
 describe("scoring core", () => {
   it("calculates a perfect normal score", () => {
@@ -40,5 +40,11 @@ describe("scoring core", () => {
     const result = solveNormalTarget(1000, 800, 830000, "nearest");
     expect(result[0]?.badMiss).toBeGreaterThanOrEqual(0);
     expect(result[0]?.perfect + result[0]?.good + result[0]?.badMiss).toBe(1000);
+  });
+
+  it("keeps the unrestricted normal-mode search bounded", () => {
+    const result = solveNormalUnrestrictedTarget(2000, 950000, "nearest");
+    expect(result.length).toBeGreaterThan(0);
+    expect(result[0]?.maxCombo).toBeGreaterThanOrEqual(0);
   });
 });

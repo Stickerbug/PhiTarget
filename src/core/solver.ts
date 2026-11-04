@@ -73,3 +73,39 @@ export function solveNormalTarget(notes: number, maxCombo: number, target: numbe
   if (match === "exact") return candidates.filter((item) => item.delta === 0).slice(0, 10);
   return candidates.filter((item) => item.delta >= 0).sort((a, b) => Math.abs(a.delta) - Math.abs(b.delta)).slice(0, 5);
 }
+
+/**
+ * Solve a normal-mode target without forcing FC or one fixed Max Combo.
+ * This is a fast theoretical search: it samples the combo range evenly and
+ * solves the affine Good value for every grouped Bad+Miss count. It is useful
+ * for the default reachability view; exact sequence validation still needs a
+ * full chart event model.
+ */
+export function solveNormalUnrestrictedTarget(notes: number, target: number, match: TargetMatch, rounding: RoundingMode = "nearest"): NormalSolution[] {
+  if (!Number.isInteger(notes) || notes <= 0) throw new Error("Notes must be a positive integer");
+  if (!Number.isInteger(target) || target < 0) throw new Error("Target must be a non-negative integer");
+  const candidate = (good: number, badMiss: number, maxCombo: number): NormalSolution => {
+    const result = score({ notes, perfect: notes - good - badMiss, good, bad: badMiss, miss: 0, maxCombo }, rounding);
+    const achieved = Number(result.display);
+    return { good, perfect: notes - good - badMiss, badMiss, maxCombo, result, delta: achieved - target };
+  };
+  const candidates: NormalSolution[] = [];
+  const step = Math.max(1, Math.floor(notes / 80));
+  const combos = new Set<number>();
+  for (let combo = 0; combo <= notes; combo += step) combos.add(combo);
+  combos.add(notes);
+  for (let badMiss = 0; badMiss <= notes; badMiss += 1) {
+    for (const maxCombo of combos) {
+      const base = 900000 * notes + 100000 * maxCombo - target * notes;
+      const idealGood = Math.round((base - 900000 * badMiss) / 315000);
+      for (const good of [idealGood - 1, idealGood, idealGood + 1]) {
+        if (good < 0 || good + badMiss > notes) continue;
+        candidates.push(candidate(good, badMiss, maxCombo));
+      }
+    }
+  }
+  candidates.sort((a, b) => Math.abs(a.delta) - Math.abs(b.delta) || a.badMiss - b.badMiss || a.maxCombo - b.maxCombo);
+  if (match === "nearest") return candidates.slice(0, 5);
+  if (match === "exact") return candidates.filter((item) => item.delta === 0).slice(0, 10);
+  return candidates.filter((item) => item.delta >= 0).sort((a, b) => Math.abs(a.delta) - Math.abs(b.delta)).slice(0, 5);
+}

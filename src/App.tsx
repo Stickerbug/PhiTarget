@@ -1,6 +1,6 @@
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
-import { solveFcTarget, solveNormalTarget } from "./core/solver";
+import { solveFcTarget, solveNormalTarget, solveNormalUnrestrictedTarget } from "./core/solver";
 import type { ChartDataset, ChartRecord } from "./data/types";
 
 const number = new Intl.NumberFormat("en-US");
@@ -39,7 +39,7 @@ export default function App() {
   const [selectedId, setSelectedId] = useState("");
   const [target, setTarget] = useState(950000);
   const [match, setMatch] = useState<"exact" | "atLeast" | "nearest">("nearest");
-  const [scoreMode, setScoreMode] = useState<"fc" | "combo">("fc");
+  const [scoreMode, setScoreMode] = useState<"normal" | "fc" | "combo">("normal");
   const [maxCombo, setMaxCombo] = useState(1000);
 
   useEffect(() => { import("./data/dataset").then((module) => setDataset(module.dataset)); }, []);
@@ -69,7 +69,10 @@ export default function App() {
   const notes = selected?.noteCount ?? 1000;
   const effectiveCombo = scoreMode === "fc" ? notes : Math.min(maxCombo, notes);
   const state = useMemo(() => {
-    try { return { solutions: scoreMode === "fc" ? solveFcTarget(notes, target, match) : solveNormalTarget(notes, effectiveCombo, target, match), error: "" }; }
+    try {
+      const solutions = scoreMode === "normal" ? solveNormalUnrestrictedTarget(notes, target, match) : scoreMode === "fc" ? solveFcTarget(notes, target, match) : solveNormalTarget(notes, effectiveCombo, target, match);
+      return { solutions, error: "" };
+    }
     catch (error) { return { solutions: [], error: error instanceof Error ? error.message : "Invalid input" }; }
   }, [effectiveCombo, match, notes, scoreMode, target]);
   const selectedArt = selected ? assetUrl(selected.songId, "illustration") : "";
@@ -96,7 +99,7 @@ export default function App() {
         </section>
       </div>
     </section>
-    <section className="calculator-panel"><div className="calculator-heading"><div><small>PHITARGET / SCORE ROUTE</small><h2>目标分数反推</h2></div><span>{number.format(filtered.length)} charts matched</span></div><div className="solver-controls"><label>计分约束<select value={scoreMode} onChange={(event) => setScoreMode(event.target.value as typeof scoreMode)}><option value="fc">FC / 无 Bad · Miss</option><option value="combo">指定 Max Combo / 合并 Bad + Miss</option></select></label><label>目标分数<input type="number" min="0" max="1000000" value={target} onChange={(event) => setTarget(Number(event.target.value))} /></label>{scoreMode === "combo" && <label>Max Combo<input type="number" min="0" max={notes} value={maxCombo} onChange={(event) => setMaxCombo(Number(event.target.value))} /></label>}<label>求解方式<select value={match} onChange={(event) => setMatch(event.target.value as typeof match)}><option value="nearest">最接近目标</option><option value="exact">精确命中</option><option value="atLeast">至少达到</option></select></label></div><p className="formula-line">N = {number.format(notes)} · {scoreMode === "fc" ? "FC · Score = 1,000,000 − 315,000 × Good / N" : `C = ${number.format(effectiveCombo)} · Bad + Miss 作为同一误差组计算`}</p>{state.error ? <p className="error">{state.error}</p> : <div className="solutions">{state.solutions.map((solution) => <div className="solution" key={`${solution.good}-${solution.result.display}-${"badMiss" in solution ? solution.badMiss : 0}`}><div><strong>{formatScore(solution.result.display)}</strong><small>P {solution.perfect} · G {solution.good} · {"badMiss" in solution ? `B + M ${solution.badMiss}` : "B 0 · M 0"} · C {solution.maxCombo}</small></div><b className={solution.delta === 0 ? "exact" : "delta"}>{solution.delta > 0 ? "+" : ""}{formatScore(solution.delta)}</b></div>)}</div>}</section>
+    <section className="calculator-panel"><div className="calculator-heading"><div><small>PHITARGET / SCORE ROUTE</small><h2>目标分数反推</h2></div><span>{number.format(filtered.length)} charts matched</span></div><div className="solver-controls"><label>计分约束<select value={scoreMode} onChange={(event) => setScoreMode(event.target.value as typeof scoreMode)}><option value="normal">普通模式 / 不限制 FC</option><option value="fc">FC / 无 Bad · Miss</option><option value="combo">指定 Max Combo / 合并 Bad + Miss</option></select></label><label>目标分数<input type="number" min="0" max="1000000" value={target} onChange={(event) => setTarget(Number(event.target.value))} /></label>{scoreMode === "combo" && <label>Max Combo<input type="number" min="0" max={notes} value={maxCombo} onChange={(event) => setMaxCombo(Number(event.target.value))} /></label>}<label>求解方式<select value={match} onChange={(event) => setMatch(event.target.value as typeof match)}><option value="nearest">最接近目标</option><option value="exact">精确命中</option><option value="atLeast">至少达到</option></select></label></div><p className="formula-line">N = {number.format(notes)} · {scoreMode === "normal" ? "普通模式 · 不限制 FC · Bad + Miss 合并显示，Max Combo 取理论样本" : scoreMode === "fc" ? "FC · Score = 1,000,000 − 315,000 × Good / N" : `C = ${number.format(effectiveCombo)} · Bad + Miss 作为同一误差组计算`}</p>{state.error ? <p className="error">{state.error}</p> : <div className="solutions">{state.solutions.map((solution) => <div className="solution" key={`${solution.good}-${solution.maxCombo}-${solution.result.display}-${"badMiss" in solution ? solution.badMiss : 0}`}><div><strong>{formatScore(solution.result.display)}</strong><small>P {solution.perfect} · G {solution.good} · {"badMiss" in solution ? `B + M ${solution.badMiss}` : "B 0 · M 0"} · C {solution.maxCombo}</small></div><b className={solution.delta === 0 ? "exact" : "delta"}>{solution.delta > 0 ? "+" : ""}{formatScore(solution.delta)}</b></div>)}</div>}</section>
     <footer className="footer"><span>PhiTarget / local-first / no account</span><span>source version {dataset.chartVersion.slice(0, 12)} · resource artwork via Phigros_Resource</span></footer>
   </main>;
 }
