@@ -8,7 +8,7 @@
 - Git 远程为 `https://github.com/Stickerbug/PhiTarget.git`，当前 `main` 指向 `2c034b0930621e1d2d6783d795c422682af95f94`。
 - 仓库在审计前只有一个初始 README，当前没有 `package.json`、构建脚本、源代码、测试、曲库或部署配置。
 - 开发包已经整理到仓库的 `docs/`、`assets/ui-references/`、`README.md` 和 `CODEX_IMPLEMENTATION_PROMPT.md`。DOCX 的正文与开发包文档一致，另外包含四张相同的参考图。
-- 开发包不包含曲目元数据、谱面事件、物量清单、真实结算校准集或可直接使用的第三方 API 数据。因此当前不能假设任何歌曲、定数、物量或课题选曲资格。
+- 开发包本身不包含曲目元数据、谱面事件、物量清单或真实结算校准集。当前基线随后接入了公开社区快照，不能把它描述为官方 API，也不能据此确认课题选曲资格。
 
 ## 数据源与许可
 
@@ -85,8 +85,8 @@ IndexedDB 预留 stores：`profiles`、`chartRecords`、`scoreHistory`、`savedP
 
 ## Phase 0 结论
 
-仓库适合从一个小型 TypeScript/Vite 静态基线开始。先落地可测试的计分内核、版本化规则 schema、空曲库加载器和审计文档；真实曲库、取整校准和第三方适配器留在数据许可明确后接入。
+仓库适合从一个小型 TypeScript/Vite 静态基线开始。计分内核、版本化规则 schema、曲库加载器和审计文档已经落地；取整校准、课题资格和第三方适配器仍需继续确认。
 
 ## 审计后基线状态
 
-本次继续执行已完成上述基线：`src/core/scoring.ts` 提供整数/有理数计分与可配置取整，`src/core/solver.ts` 提供普通 FC 目标反推，`src/data/` 提供空曲库与待校准规则，首页提供可交互的 FC 反推演示。`npm test`、`npm run typecheck` 和 `npm run build` 均已通过。
+本次继续执行已完成上述基线：`src/core/scoring.ts` 提供整数/有理数计分与可配置取整，`src/core/solver.ts` 提供普通 FC 目标反推，`src/data/charts.json` 索引 327 首、1,037 张谱面，首页提供筛选、谱面统计和 FC 反推。`npm test`、`npm run typecheck` 和 `npm run build` 均已通过。

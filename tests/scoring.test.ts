@@ -29,4 +29,10 @@ describe("scoring core", () => {
     expect(exact[0]?.good).toBe(100);
     expect(exact[0]?.perfect).toBe(900);
   });
+
+  it("solves very large custom note counts without enumerating every Good count", () => {
+    const result = solveFcTarget(10_000_000, 999999, "nearest");
+    expect(result.length).toBeGreaterThan(0);
+    expect(result[0]?.good).toBeGreaterThanOrEqual(0);
+  });
 });
