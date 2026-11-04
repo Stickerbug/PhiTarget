@@ -9,9 +9,11 @@ const difficultyName: Record<string, string> = { ez: "EZ", hd: "HD", in: "IN", a
 const sortNames: Record<string, string> = { title: "曲名", constantAsc: "定数 ↑", constantDesc: "定数 ↓", notes: "物量 ↓" };
 const resourceCdn = "https://cdn.jsdelivr.net/gh/7aGiven/Phigros_Resource";
 const assetUrl = (songId: string, branch: "illustration" | "illustrationLowRes" | "illustrationBlur") => `${resourceCdn}@${branch}/${encodeURIComponent(songId)}.png`;
+type ScoreRank = "F" | "C" | "B" | "A" | "S" | "V" | "phi";
+const rankAssets: Record<ScoreRank, string> = { F: "/assets/ranks/F.png", C: "/assets/ranks/C.png", B: "/assets/ranks/B.png", A: "/assets/ranks/A.png", S: "/assets/ranks/S.png", V: "/assets/ranks/V.png", phi: "/assets/ranks/phi.png" };
 
 const formatScore = (value: bigint | number) => typeof value === "bigint" ? value.toString() : number.format(value);
-const rankForScore = (score: number) => score >= 1_000_000 ? "Φ" : score >= 950_000 ? "V" : score >= 900_000 ? "S" : score >= 820_000 ? "A" : score >= 700_000 ? "B" : score >= 600_000 ? "C" : "F";
+const rankForScore = (score: number): ScoreRank => score >= 1_000_000 ? "phi" : score >= 950_000 ? "V" : score >= 900_000 ? "S" : score >= 820_000 ? "A" : score >= 700_000 ? "B" : score >= 600_000 ? "C" : "F";
 
 function SongRow({ charts, selectedId, onSelect }: { charts: ChartRecord[]; selectedId: string; onSelect: (chart: ChartRecord) => void }) {
   const first = charts[0];
@@ -84,7 +86,7 @@ export default function App() {
   return <main className="app-shell">
     <section className="game-screen" style={selectedBlur ? { "--selected-art": `url(${selectedBlur})` } as CSSProperties : undefined}>
       <div className="network-lines" />
-      <header className="game-header"><button className="back-button" aria-label="返回">‹</button><div className="game-header-title"><small>PHITARGET / {chapterLabel}</small><strong>曲目选择</strong></div><div className="player-chip"><span className="player-level">40</span><span><b>LOCAL</b><small>LIBRARY {dataset.charts.length}</small></span></div></header>
+      <header className="game-header"><div className="game-header-title"><small>PHITARGET / {chapterLabel}</small><strong>曲目选择</strong></div><div className="player-chip"><span className="player-level">40</span><span><b>LOCAL</b><small>LIBRARY {dataset.charts.length}</small></span></div></header>
       <div className="chapter-strip"><ChapterCard label="全部" art={chapterCards[0]?.chart ? assetUrl(chapterCards[0].chart.songId, "illustrationLowRes") : selectedArt} active={chapter === "all"} onSelect={() => setChapter("all")} />{chapterCards.map(({ name, chart }) => <ChapterCard key={name} label={name.replace(/^Chapter\s*/i, "")} art={assetUrl(chart.songId, "illustrationLowRes")} active={chapter === name} onSelect={() => setChapter(name)} />)}</div>
       <div className="game-content">
         <aside className="song-browser">
@@ -95,7 +97,7 @@ export default function App() {
           {filtered.length > 96 && <p className="list-limit">显示前 96 首，继续缩小章节、搜索或定数范围。</p>}
         </aside>
         <section className="song-stage">
-          {selected ? <><div className="song-heading"><div><small>{selected.composer || "Unknown composer"} ／ {selected.illustrator || "Illustrator unknown"}</small><h1>{selected.title}</h1></div><span className={`stage-difficulty difficulty-${selected.difficulty}`}>{difficultyName[selected.difficulty]}</span></div><div className="art-frame"><img src={selectedArt} alt={`${selected.title} 曲绘`} /></div><div className="difficulty-switch">{selectedSongCharts.map((chart) => <button key={chart.chartId} className={chart.chartId === selected.chartId ? `active difficulty-${chart.difficulty}` : ""} onClick={() => setSelectedId(chart.chartId)}><b>{chart.constant?.toFixed(1) ?? "—"}</b><small>{difficultyName[chart.difficulty]}</small></button>)}</div><div className="score-strip"><span className="target-score">{number.format(target)}<small>目标分数</small></span><span><b>{number.format(selected.noteCount ?? 0)}</b><small>NOTES</small></span><span><b>{selected.constant?.toFixed(1) ?? "—"}</b><small>定数</small></span><span className="rank-mark">{rankForScore(target)}</span></div><div className="stage-actions"><button className="mirror-button">Mirror</button><button className="play-button" aria-label="开始计算">▷</button></div></> : <p className="empty-state">没有匹配的歌曲。</p>}
+          {selected ? <><div className="song-heading"><div><small>{selected.composer || "Unknown composer"} ／ {selected.illustrator || "Illustrator unknown"}</small><h1>{selected.title}</h1></div><span className={`stage-difficulty difficulty-${selected.difficulty}`}>{difficultyName[selected.difficulty]}</span></div><div className="art-frame"><img src={selectedArt} alt={`${selected.title} 曲绘`} /></div><div className="difficulty-switch">{selectedSongCharts.map((chart) => <button key={chart.chartId} className={chart.chartId === selected.chartId ? `active difficulty-${chart.difficulty}` : ""} onClick={() => setSelectedId(chart.chartId)}><b>{chart.constant?.toFixed(1) ?? "—"}</b><small>{difficultyName[chart.difficulty]}</small></button>)}</div><div className="score-strip"><span className="target-score">{number.format(target)}<small>目标分数</small></span><span><b>{number.format(selected.noteCount ?? 0)}</b><small>NOTES</small></span><span><b>{selected.constant?.toFixed(1) ?? "—"}</b><small>定数</small></span><span className="rank-mark"><img src={rankAssets[rankForScore(target)]} alt={rankForScore(target) === "phi" ? "Phi" : rankForScore(target)} /></span></div></> : <p className="empty-state">没有匹配的歌曲。</p>}
         </section>
       </div>
     </section>

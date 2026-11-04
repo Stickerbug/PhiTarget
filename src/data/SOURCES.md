@@ -18,3 +18,9 @@ node scripts/import-public-chart-data.mjs
 - 仓库：[7aGiven/Phigros_Resource](https://github.com/7aGiven/Phigros_Resource)，GPL-3.0。
 - `info` 分支与现有 327 个 `songId` 完全匹配；`illustration`、`illustrationLowRes`、`illustrationBlur` 分支分别提供高清、列表缩略图和背景图。
 - 网页通过 `https://cdn.jsdelivr.net/gh/7aGiven/Phigros_Resource@<branch>/<songId>.png` 按需读取资源，不把官方/游戏曲绘复制到构建包。游戏素材的公开发布权利仍需单独确认。
+
+## 字体和成绩等级图
+
+- `Catrong/phi-plugin/resources/html/common/font/phi.ttf` 的字体元数据为 `Source Han Sans & Saira Hybrid`，并附带资源目录中的 Apache 2.0 许可文本；网页将其作为主字体使用。
+- `resources/html/otherimg/{F,C,B,A,S,V,FC,phi,NEW}.png` 是插件资源中的等级图，已放入 `public/assets/ranks/`，用于目标分数等级显示。该资源与插件仓库的游戏素材仍应按公开发布场景单独复核。
+- `phi.ttf` 本身不含 U+058E（`֎`，歌曲「百鬼֎夜行」中间的符号）字形；网页为这个字符提供 Noto Sans Armenian OFL fallback，保证它不会显示成方框。若取得官方 APK 的 TextMeshPro 字体资产，可再替换为官方字形。
