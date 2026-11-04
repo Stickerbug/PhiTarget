@@ -24,3 +24,8 @@ node scripts/import-public-chart-data.mjs
 - `Catrong/phi-plugin/resources/html/common/font/phi.ttf` 的字体元数据为 `Source Han Sans & Saira Hybrid`，并附带资源目录中的 Apache 2.0 许可文本；网页将其作为主字体使用。
 - `resources/html/otherimg/{F,C,B,A,S,V,FC,phi,NEW}.png` 是插件资源中的等级图，已放入 `public/assets/ranks/`，用于目标分数等级显示。该资源与插件仓库的游戏素材仍应按公开发布场景单独复核。
 - `phi.ttf` 本身不含 U+058E（`֎`，歌曲「百鬼֎夜行」中间的符号）字形；网页为这个字符提供 Noto Sans Armenian OFL fallback，保证它不会显示成方框。若取得官方 APK 的 TextMeshPro 字体资产，可再替换为官方字形。
+
+## 排序和搜索
+
+- 默认歌曲顺序使用 `Phigros_Resource/info/info.tsv` 的排列索引；章节卡片顺序按录屏可见的 `Phigros → Single → Legacy → Chapter 5…9 → Side Story → 联动精选集` 组织，未出现的新增章节追加到末尾。
+- Kyou 的 `aliases.json` 作为公开社区别名来源。搜索会对大小写、空格、标点和重音符号做归一化，因此 `DESTRUCTION 3,2,1` 可以用 `321` 搜到。

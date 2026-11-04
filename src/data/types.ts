@@ -16,10 +16,13 @@ export type ChartRecord = {
   sourceVersion: string;
 };
 
+export type SongMetadata = { songOrder: number; searchKeywords: string[] };
+
 export type ChartDataset = {
   schemaVersion: string;
   chartVersion: string;
   generatedAt: string;
   source: { name: string; url: string; license: string; note: string }[];
+  songMeta: Record<string, SongMetadata>;
   charts: ChartRecord[];
 };
