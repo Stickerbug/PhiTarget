@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "0.1",
+  "formulaVersion": "candidate-1",
+  "roundingMode": "nearest",
+  "confidence": "approximate",
+  "calibrationStatus": "pending-real-result-screenshots",
+  "badgeRules": [],
+  "notes": "Do not treat formula or badge values as calibrated until checked against the target game version."
+}
