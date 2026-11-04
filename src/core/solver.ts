@@ -12,6 +12,15 @@ export type FcSolution = {
   delta: number;
 };
 
+export type NormalSolution = {
+  good: number;
+  perfect: number;
+  badMiss: number;
+  maxCombo: number;
+  result: ScoreResult;
+  delta: number;
+};
+
 export function solveFcTarget(notes: number, target: number, match: TargetMatch, rounding: RoundingMode = "nearest"): FcSolution[] {
   if (!Number.isInteger(notes) || notes <= 0) throw new Error("Notes must be a positive integer");
   if (!Number.isInteger(target) || target < 0) throw new Error("Target must be a non-negative integer");
@@ -36,4 +45,31 @@ export function solveFcTarget(notes: number, target: number, match: TargetMatch,
   if (match === "nearest") return nearby.slice(0, 3);
   if (match === "exact") return nearby.filter((item) => item.delta === 0).slice(0, 10);
   return nearby.filter((item) => item.delta >= 0).sort((a, b) => b.good - a.good).slice(0, 1);
+}
+
+/** Solve a normal-mode target while grouping Bad and Miss into one score-equivalent error count. */
+export function solveNormalTarget(notes: number, maxCombo: number, target: number, match: TargetMatch, rounding: RoundingMode = "nearest"): NormalSolution[] {
+  if (!Number.isInteger(notes) || notes <= 0) throw new Error("Notes must be a positive integer");
+  if (!Number.isInteger(maxCombo) || maxCombo < 0 || maxCombo > notes) throw new Error("Max Combo must be between zero and notes");
+  if (!Number.isInteger(target) || target < 0) throw new Error("Target must be a non-negative integer");
+  const candidate = (good: number, badMiss: number): NormalSolution => {
+    const result = score({ notes, perfect: notes - good - badMiss, good, bad: badMiss, miss: 0, maxCombo }, rounding);
+    const achieved = Number(result.display);
+    return { good, perfect: notes - good - badMiss, badMiss, maxCombo, result, delta: achieved - target };
+  };
+  const candidates: NormalSolution[] = [];
+  // The score is affine in Good and in the grouped Bad+Miss count. For each error count,
+  // calculate the Good value nearest the target instead of enumerating Good × errors.
+  const base = 900000 * notes + 100000 * maxCombo - target * notes;
+  for (let badMiss = 0; badMiss <= notes; badMiss += 1) {
+    const idealGood = Math.round((base - 900000 * badMiss) / 315000);
+    for (const good of [idealGood - 1, idealGood, idealGood + 1]) {
+      if (good < 0 || good + badMiss > notes) continue;
+      candidates.push(candidate(good, badMiss));
+    }
+  }
+  candidates.sort((a, b) => Math.abs(a.delta) - Math.abs(b.delta) || a.badMiss - b.badMiss || a.good - b.good);
+  if (match === "nearest") return candidates.slice(0, 5);
+  if (match === "exact") return candidates.filter((item) => item.delta === 0).slice(0, 10);
+  return candidates.filter((item) => item.delta >= 0).sort((a, b) => Math.abs(a.delta) - Math.abs(b.delta)).slice(0, 5);
 }
