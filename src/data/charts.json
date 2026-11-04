@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.2",
+  "schemaVersion": "0.3",
   "chartVersion": "ac4366743c97c0b987575a809daf6384be0604826d7fd25ddc07e4fb719bc7c1",
   "generatedAt": "2026-11-04T16:19:22.247209+00:00",
   "source": [
@@ -14,6 +14,12 @@
       "url": "https://kyou.net.cn",
       "license": "source terms pending review",
       "note": "仅用于章节/曲包映射，发布前应继续核对数据条款。"
+    },
+    {
+      "name": "Phigros_Resource illustrations",
+      "url": "https://github.com/7aGiven/Phigros_Resource",
+      "license": "GPL-3.0 repository; game artwork rights require separate review",
+      "note": "引用 illustration / illustrationLowRes / illustrationBlur 分支的远程图片，不复制完整仓库。"
     }
   ],
   "charts": [

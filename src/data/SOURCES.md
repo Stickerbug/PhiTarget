@@ -12,3 +12,9 @@ node scripts/import-public-chart-data.mjs
 ```
 
 数据只保存谱面统计，不保存完整谱面事件 JSON。`noteCount` 是四类统计之和，作为目标分数公式的 N；完整谱面顺序验证仍属于后续阶段。
+
+## Phigros_Resource 曲绘
+
+- 仓库：[7aGiven/Phigros_Resource](https://github.com/7aGiven/Phigros_Resource)，GPL-3.0。
+- `info` 分支与现有 327 个 `songId` 完全匹配；`illustration`、`illustrationLowRes`、`illustrationBlur` 分支分别提供高清、列表缩略图和背景图。
+- 网页通过 `https://cdn.jsdelivr.net/gh/7aGiven/Phigros_Resource@<branch>/<songId>.png` 按需读取资源，不把官方/游戏曲绘复制到构建包。游戏素材的公开发布权利仍需单独确认。

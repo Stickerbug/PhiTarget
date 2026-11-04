@@ -56,12 +56,13 @@ for (const row of infoRows) {
 }
 charts.sort((a, b) => a.title.localeCompare(b.title) || a.difficulty.localeCompare(b.difficulty));
 const dataset = {
-  schemaVersion: "0.2",
+  schemaVersion: "0.3",
   chartVersion: latest.resourceVersion,
   generatedAt: new Date().toISOString(),
   source: [
     { name: "phi-plugin info.csv + notesInfo.json", url: "https://github.com/Catrong/phi-plugin", license: "GPL-3.0", note: "公开社区维护的曲目/谱面元数据；未复制曲绘或代码。" },
     { name: "Kyou song packs", url: "https://kyou.net.cn", license: "source terms pending review", note: "仅用于章节/曲包映射，发布前应继续核对数据条款。" },
+    { name: "Phigros_Resource illustrations", url: "https://github.com/7aGiven/Phigros_Resource", license: "GPL-3.0 repository; game artwork rights require separate review", note: "仅引用 illustration / illustrationLowRes / illustrationBlur 分支的远程图片，不复制完整仓库。" },
   ],
   charts,
 };
