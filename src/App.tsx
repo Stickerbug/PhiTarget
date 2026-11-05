@@ -66,7 +66,7 @@ function SongRow({ charts, selectedId, onSelect }: { charts: ChartRecord[]; sele
 }
 
 function ChapterCard({ label, art, active, onSelect }: { label: string; art: string; active: boolean; onSelect: () => void }) {
-  return <button className={`chapter-card ${active ? "active" : ""}`} aria-pressed={active} aria-label={`选择${label}`} onClick={onSelect}><img src={art} alt="" loading="lazy" decoding="async" /><span><i>{label}</i></span></button>;
+  return <button className={`chapter-card ${active ? "active" : ""}`} style={{ "--chapter-art": `url("${art}")` } as CSSProperties} aria-pressed={active} aria-label={`选择${label}`} onClick={onSelect}><span><i>{label}</i></span></button>;
 }
 
 export default function App() {
