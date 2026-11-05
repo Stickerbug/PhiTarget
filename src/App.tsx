@@ -3,6 +3,7 @@ import type { CSSProperties } from "react";
 import { solveFcTarget, solveNormalTarget, solveNormalUnrestrictedTarget } from "./core/solver";
 import { analyzeReachableScores, nearestReachableScores, type ReachabilityMode } from "./core/reachable";
 import type { ChartDataset, ChartRecord } from "./data/types";
+import { chapterArtworkFor } from "./data/chapterArtwork";
 
 const number = new Intl.NumberFormat("en-US");
 const difficultyOrder = ["ez", "hd", "in", "at"];
@@ -45,7 +46,7 @@ function SongRow({ charts, selectedId, onSelect }: { charts: ChartRecord[]; sele
 }
 
 function ChapterCard({ label, art, active, onSelect }: { label: string; art: string; active: boolean; onSelect: () => void }) {
-  return <button className={`chapter-card ${active ? "active" : ""}`} onClick={onSelect}><img src={art} alt="" loading="lazy" /><span>{label}</span></button>;
+  return <button className={`chapter-card ${active ? "active" : ""}`} aria-pressed={active} aria-label={`选择${label}`} onClick={onSelect}><img src={art} alt="" loading="lazy" decoding="async" /><span>{label}</span></button>;
 }
 
 export default function App() {
@@ -114,6 +115,7 @@ export default function App() {
   const reachableNearby = useMemo(() => reachableState.analysis ? nearestReachableScores(reachableState.analysis.scores, target) : [], [reachableState.analysis, target]);
   const selectedArt = selected ? assetUrl(selected.songId, "illustration") : "";
   const selectedBlur = selected ? assetUrl(selected.songId, "illustrationBlur") : "";
+  const chapterArt = chapterArtworkFor(chapter, selectedBlur);
   const chapterLabel = chapter === "all" ? "Phigros" : chapterDisplayName(chapter);
   const cycleSort = () => setSortMode((current) => sortModes[(sortModes.indexOf(current) + 1) % sortModes.length]);
   const toggleDirection = () => setSortDirection((current) => current === "asc" ? "desc" : "asc");
@@ -121,10 +123,10 @@ export default function App() {
   if (!dataset) return <main className="loading-screen"><span className="loading-mark">Φ</span><p>正在读取曲库索引…</p></main>;
 
   return <main className="app-shell">
-    <section className="game-screen" style={selectedBlur ? { "--selected-art": `url(${selectedBlur})` } as CSSProperties : undefined}>
+    <section className="game-screen" style={chapterArt ? { "--selected-art": `url(${chapterArt})` } as CSSProperties : undefined}>
       <div className="network-lines" />
       <header className="game-header"><div className="game-header-title"><small>{chapterLabel}</small><strong>曲目选择</strong></div><div className="player-chip"><span className="player-level">40</span></div></header>
-      <div className="chapter-strip"><ChapterCard label="Phigros" art={chapterCards[0]?.chart ? assetUrl(chapterCards[0].chart.songId, "illustrationBlur") : selectedBlur} active={chapter === "all"} onSelect={() => setChapter("all")} />{chapterCards.map(({ name, chart }) => <ChapterCard key={name} label={chapterDisplayName(name)} art={assetUrl(chart.songId, "illustrationBlur")} active={chapter === name} onSelect={() => setChapter(name)} />)}</div>
+      <div className="chapter-strip"><ChapterCard label="Phigros" art={chapterArtworkFor("all", chapterCards[0]?.chart ? assetUrl(chapterCards[0].chart.songId, "illustrationBlur") : selectedBlur)} active={chapter === "all"} onSelect={() => setChapter("all")} />{chapterCards.map(({ name, chart }) => <ChapterCard key={name} label={chapterDisplayName(name)} art={chapterArtworkFor(name, assetUrl(chart.songId, "illustrationBlur"))} active={chapter === name} onSelect={() => setChapter(name)} />)}</div>
       <div className="game-content">
         <aside className="song-browser">
           <div className="sort-panel"><div><small>歌曲列表</small><strong>{chapterLabel}</strong></div><div className="sort-control"><button className="sort-cycle" type="button" onClick={cycleSort}><span>排序</span><strong>{sortNames[sortMode]}</strong></button><button className="sort-direction" type="button" onClick={toggleDirection} aria-label={sortDirection === "asc" ? "升序" : "降序"}>{sortDirection === "asc" ? "↑" : "↓"}</button></div></div>

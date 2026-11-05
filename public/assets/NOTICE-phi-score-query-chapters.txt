@@ -1,0 +1,15 @@
+Chapter carousel background snapshots
+
+Source: https://github.com/SanGeDian123/Phi-Score-Query
+Path: psq-web/public/images/chapters
+Snapshot: 796c817f340be428c4cf1be5d55654fdd19b1701
+Project license: Apache License 2.0 (see the source repository LICENSE).
+
+The images contain Phigros and collaboration artwork whose underlying
+copyrights belong to their respective rights holders. This notice records the
+source of the local web-optimized copies; it does not change those rights.
+
+The Chapter 9 supplemental image is from:
+https://github.com/shdb5166-art/rule-of-law-tianjin
+Path: phigros/assets/images/chapterImages/chapter9.jpg
+Snapshot: 8cd5878862f359a83312e0277cd630fad4bbc364

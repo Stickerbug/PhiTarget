@@ -19,6 +19,12 @@ node scripts/import-public-chart-data.mjs
 - `info` 分支与现有 327 个 `songId` 完全匹配；`illustration`、`illustrationLowRes`、`illustrationBlur` 分支分别提供高清、列表缩略图和背景图。
 - 网页通过 `https://cdn.jsdelivr.net/gh/7aGiven/Phigros_Resource@<branch>/<songId>.png` 按需读取资源，不把官方/游戏曲绘复制到构建包。游戏素材的公开发布权利仍需单独确认。
 
+## 章节选择背景
+
+- 章节卡片的本地 WebP 来自 [SanGeDian123/Phi-Score-Query](https://github.com/SanGeDian123/Phi-Score-Query) 的 `psq-web/public/images/chapters`（Apache-2.0 项目，快照提交 `796c817f340be428c4cf1be5d55654fdd19b1701`）。
+- Chapter 9 的补充图来自 [shdb5166-art/rule-of-law-tianjin](https://github.com/shdb5166-art/rule-of-law-tianjin) 的 `phigros/assets/images/chapterImages/chapter9.jpg`（快照提交 `8cd5878862f359a83312e0277cd630fad4bbc364`），并转成同尺寸 WebP。
+- 这组资源包含游戏中独立的 Legacy、maimai 等章节图；因此不会再把章节的第一首歌曲绘误当成章节背景。游戏曲绘的著作权仍归原权利人所有。
+
 ## 字体和成绩等级图
 
 - `Catrong/phi-plugin/resources/html/common/font/phi.ttf` 的字体元数据为 `Source Han Sans & Saira Hybrid`，并附带资源目录中的 Apache 2.0 许可文本；网页将其作为主字体使用。
