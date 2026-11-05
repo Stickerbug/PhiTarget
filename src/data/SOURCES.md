@@ -29,3 +29,4 @@ node scripts/import-public-chart-data.mjs
 
 - 默认歌曲顺序使用 `Phigros_Resource/info/info.tsv` 的排列索引；章节卡片顺序按录屏可见的 `Phigros → Single → Legacy → Chapter 5…9 → Side Story → 联动精选集` 组织，未出现的新增章节追加到末尾。
 - Kyou 的 `aliases.json` 作为公开社区别名来源。搜索会对大小写、空格、标点和重音符号做归一化，因此 `DESTRUCTION 3,2,1` 可以用 `321` 搜到。
+- “未归类”只会在曲名无法映射到曲包时出现；导入器现在会先做 Unicode/标点归一化，再用包含关系兜底匹配（例如 `The Mountain Eater` 对应 Kyou 的 `The Mountain Eater from MUSYNC`）。当前快照的 327 首歌曲已全部映射到章节。

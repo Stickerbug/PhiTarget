@@ -33,7 +33,13 @@ const manifest = await getJson(`${kyouBase}${latest.manifestPath}`);
 const songsFile = manifest.files.find((file) => file.name === "songs.json");
 const kyouSongs = await getJson(`${kyouBase}${songsFile.path}`);
 const packByName = new Map(kyouSongs.map((song) => [song.name, song.pack]));
-const kyouIdByName = new Map(kyouSongs.map((song) => [normalizeSearch(song.name), song.song_id]));
+const normalizedKyouSongs = kyouSongs.map((song) => ({ ...song, normalizedName: normalizeSearch(song.name) }));
+const findKyouSong = (title) => {
+  const normalizedTitle = normalizeSearch(title);
+  const exact = normalizedKyouSongs.find((song) => song.normalizedName === normalizedTitle);
+  if (exact) return exact;
+  return normalizedKyouSongs.filter((song) => song.normalizedName.includes(normalizedTitle) || normalizedTitle.includes(song.normalizedName)).sort((a, b) => Math.abs(a.normalizedName.length - normalizedTitle.length) - Math.abs(b.normalizedName.length - normalizedTitle.length))[0];
+};
 const aliasesFile = manifest.files.find((file) => file.name === "aliases.json");
 const aliases = aliasesFile ? await getJson(`${kyouBase}${aliasesFile.path}`) : [];
 const aliasesByKyouId = new Map();
@@ -49,7 +55,8 @@ const difficulties = ["EZ", "HD", "IN", "AT"];
 const charts = [];
 const songMeta = {};
 for (const [rowIndex, row] of infoRows.entries()) {
-  const kyouId = kyouIdByName.get(normalizeSearch(row.song));
+  const kyouSong = findKyouSong(row.song);
+  const kyouId = kyouSong?.song_id;
   const aliasesForSong = kyouId ? aliasesByKyouId.get(kyouId) ?? [] : [];
   const searchKeywords = [...new Set([row.song, row.composer, row.illustrator, row.id, ...aliasesForSong, ...difficulties.flatMap((difficulty) => [row[difficulty], row[`${difficulty}C`]]).filter(Boolean)])].filter(Boolean);
   songMeta[row.id] = { songOrder: songOrderById.get(row.id) ?? rowIndex, searchKeywords };
@@ -64,7 +71,7 @@ for (const [rowIndex, row] of infoRows.entries()) {
       chartId: `${row.id}::${difficulty.toLowerCase()}`,
       songId: row.id,
       title: row.song,
-      chapter: packByName.get(row.song) ?? "未归类",
+      chapter: kyouSong?.pack ?? packByName.get(row.song) ?? "未归类",
       difficulty: difficulty.toLowerCase(),
       level: constant,
       constant,
