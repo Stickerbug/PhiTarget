@@ -24,6 +24,7 @@ export const chapterArtwork: Record<string, string> = {
   "Chapter Ex-Immaculée Sekai 精选集": local(12),
   "Chapter Ex-EGTS 精选集": local(9),
   "Chapter Ex-Paradigm: Reboot 精选集": local(19),
+  "Chapter Ex-Paradigm：Reboot 精选集": local(19),
   "Chapter Ex-CHUNITHM 精选集": local(8),
   "Chapter Ex-Rotaeno 精选集": local(21),
   "Chapter Ex-OverRapid 精选集": local(18),
@@ -38,6 +39,7 @@ export const chapterArtwork: Record<string, string> = {
   "Chapter Ex-Rising Sun Traxx": local(20),
   "Chapter Ex-SHINOBI SLASH 精选集": local(22),
   "极星卫": local(26),
+  "Extra Story Chapter 极星卫": local(26),
 };
 
 export const chapterArtworkFor = (chapter: string, fallback: string) => chapterArtwork[chapter] ?? fallback;

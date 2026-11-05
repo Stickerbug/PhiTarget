@@ -19,19 +19,39 @@ const rankAssets: Record<ScoreRank, string> = { F: "/assets/ranks/F.png", C: "/a
 const chapterOrder = [
   "单曲精选集", "Chapter Legacy 过去的章节", "Chapter 5 霓虹灯牌", "Chapter 6 方舟蜃景", "Chapter 7 时钟链接", "Chapter 8 凌日潮汐", "Chapter 9 穹顶孤舟",
   "Side Story 1 忘忧宫", "Side Story 2 弭刻日", "Side Story 3 盗乐行", "Side Story 4 无相乡",
-  "Chapter Ex-CYTUS II 精选集", "Chapter Ex-Liminality 精选集", "Chapter Ex-maimai 精选集", "Chapter Ex-オンゲキ 精选集", "Chapter Ex-Immaculée Sekai 精选集", "Chapter Ex-EGTS 精选集", "Chapter Ex-节奏大师 精选集", "Chapter Ex-TAKUMI³ 精选集", "Chapter Ex-SHINOBI SLASH 精选集", "Chapter Ex-Paradigm: Reboot 精选集", "Chapter Ex-CHUNITHM 精选集", "Chapter Ex-Rotaeno 精选集", "Chapter Ex-OverRapid 精选集", "Chapter Ex-茶鸣拾贰律 精选集", "Chapter Ex-姜米條 精选集", "Chapter Ex-Lanota 精选集", "Chapter Ex-KALPA 精选集", "Chapter Ex-Muse Dash 精选集", "Chapter Ex-WAVEAT 精选集", "Chapter Ex-GOOD 精选集", "Chapter Ex-HyuN 精选集", "Chapter Ex-Rising Sun Traxx", "极星卫",
+  "Chapter Ex-CYTUS II 精选集", "Chapter Ex-Liminality 精选集", "Chapter Ex-maimai 精选集", "Chapter Ex-オンゲキ 精选集", "Chapter Ex-Immaculée Sekai 精选集", "Chapter Ex-EGTS 精选集", "Chapter Ex-节奏大师 精选集", "Chapter Ex-TAKUMI³ 精选集", "Chapter Ex-SHINOBI SLASH 精选集", "Chapter Ex-Paradigm: Reboot 精选集", "Chapter Ex-CHUNITHM 精选集", "Chapter Ex-Rotaeno 精选集", "极星卫", "Chapter Ex-OverRapid 精选集", "Chapter Ex-茶鸣拾贰律 精选集", "Chapter Ex-姜米條 精选集", "Chapter Ex-Lanota 精选集", "Chapter Ex-KALPA 精选集", "Chapter Ex-Muse Dash 精选集", "Chapter Ex-WAVEAT 精选集", "Chapter Ex-GOOD 精选集", "Chapter Ex-HyuN 精选集", "Chapter Ex-Rising Sun Traxx",
 ];
 
 const normalizeSearch = (value: string) => value.normalize("NFKD").toLowerCase().replace(/\p{M}/gu, "").replace(/[^\p{L}\p{N}]+/gu, "");
 const formatScore = (value: bigint | number) => typeof value === "bigint" ? value.toString() : number.format(value);
 const rankForScore = (score: number): ScoreRank => score >= 1_000_000 ? "phi" : score >= 950_000 ? "V" : score >= 900_000 ? "S" : score >= 820_000 ? "A" : score >= 700_000 ? "B" : score >= 600_000 ? "C" : "F";
-const chapterDisplayName = (chapter: string) => {
+const chapterOuterName = (chapter: string) => {
+  if (chapter === "all") return "Phigros";
   if (chapter === "单曲精选集") return "Single";
   if (chapter === "Chapter Legacy 过去的章节") return "Legacy";
-  if (chapter === "极星卫") return "Extra";
-  if (chapter.startsWith("Side Story")) return chapter.replace(/^Side Story/, "Side story");
+  if (chapter === "极星卫") return "かめりあ";
+  const mainStory = chapter.match(/^Chapter (\d+) /);
+  if (mainStory) return `Chapter ${mainStory[1]}`;
+  const sideStory = chapter.match(/^(Side Story \d+) /);
+  if (sideStory) return sideStory[1];
   if (chapter.startsWith("Chapter Ex-")) return chapter.replace(/^Chapter Ex-/, "").replace(/ 精选集$/, "");
-  return chapter.replace(/^Chapter /, "");
+  return chapter;
+};
+
+const chapterDetailName = (chapter: string) => {
+  if (chapter === "all") return "全部";
+  if (chapter === "单曲精选集") return "单曲精选集";
+  if (chapter === "Chapter Legacy 过去的章节") return "过去的章节";
+  if (chapter === "极星卫") return "极星卫";
+  const mainStory = chapter.match(/^Chapter \d+ (.+)$/);
+  if (mainStory) return mainStory[1];
+  const sideStory = chapter.match(/^Side Story \d+ (.+)$/);
+  if (sideStory) return sideStory[1];
+  if (chapter.startsWith("Chapter Ex-")) {
+    const name = chapter.replace(/^Chapter Ex-/, "");
+    return name.endsWith("精选集") ? name : `${name} 精选集`;
+  }
+  return chapter;
 };
 
 function SongRow({ charts, selectedId, onSelect }: { charts: ChartRecord[]; selectedId: string; onSelect: (chart: ChartRecord) => void }) {
@@ -116,7 +136,8 @@ export default function App() {
   const selectedArt = selected ? assetUrl(selected.songId, "illustration") : "";
   const selectedBlur = selected ? assetUrl(selected.songId, "illustrationBlur") : "";
   const chapterArt = chapterArtworkFor(chapter, selectedBlur);
-  const chapterLabel = chapter === "all" ? "Phigros" : chapterDisplayName(chapter);
+  const chapterOuterLabel = chapterOuterName(chapter);
+  const chapterLabel = chapterDetailName(chapter);
   const cycleSort = () => setSortMode((current) => sortModes[(sortModes.indexOf(current) + 1) % sortModes.length]);
   const toggleDirection = () => setSortDirection((current) => current === "asc" ? "desc" : "asc");
 
@@ -125,8 +146,8 @@ export default function App() {
   return <main className="app-shell">
     <section className="game-screen" style={chapterArt ? { "--selected-art": `url(${chapterArt})` } as CSSProperties : undefined}>
       <div className="network-lines" />
-      <header className="game-header"><div className="game-header-title"><small>{chapterLabel}</small><strong>曲目选择</strong></div><div className="player-chip"><span className="player-level">40</span></div></header>
-      <div className="chapter-strip"><ChapterCard label="Phigros" art={chapterArtworkFor("all", chapterCards[0]?.chart ? assetUrl(chapterCards[0].chart.songId, "illustrationBlur") : selectedBlur)} active={chapter === "all"} onSelect={() => setChapter("all")} />{chapterCards.map(({ name, chart }) => <ChapterCard key={name} label={chapterDisplayName(name)} art={chapterArtworkFor(name, assetUrl(chart.songId, "illustrationBlur"))} active={chapter === name} onSelect={() => setChapter(name)} />)}</div>
+      <header className="game-header"><div className="game-header-title"><small>{chapterOuterLabel}</small><strong>{chapterLabel}</strong></div><div className="player-chip"><span className="player-level">40</span></div></header>
+      <div className="chapter-strip"><ChapterCard label="Phigros" art={chapterArtworkFor("all", chapterCards[0]?.chart ? assetUrl(chapterCards[0].chart.songId, "illustrationBlur") : selectedBlur)} active={chapter === "all"} onSelect={() => setChapter("all")} />{chapterCards.map(({ name, chart }) => <ChapterCard key={name} label={chapterOuterName(name)} art={chapterArtworkFor(name, assetUrl(chart.songId, "illustrationBlur"))} active={chapter === name} onSelect={() => setChapter(name)} />)}</div>
       <div className="game-content">
         <aside className="song-browser">
           <div className="sort-panel"><div><small>歌曲列表</small><strong>{chapterLabel}</strong></div><div className="sort-control"><button className="sort-cycle" type="button" onClick={cycleSort}><span>排序</span><strong>{sortNames[sortMode]}</strong></button><button className="sort-direction" type="button" onClick={toggleDirection} aria-label={sortDirection === "asc" ? "升序" : "降序"}>{sortDirection === "asc" ? "↑" : "↓"}</button></div></div>
