@@ -6,6 +6,7 @@ export type ReachableBucket = { start: number; end: number; count: number };
 
 export type ReachableScoreAnalysis = {
   notes: number;
+  goodCap: number;
   mode: ReachabilityMode;
   maxCombo: number | null;
   scores: number[];
@@ -50,10 +51,10 @@ const mergeIntervals = (values: Set<number>[], notes: number): [number, number][
  * Build the exact theoretical normal-mode K set with 0 <= C <= N and no FC
  * restriction. B and M are grouped because they have the same score weight.
  */
-const normalKIntervals = (notes: number): [number, number][][] => {
+const normalKIntervals = (notes: number, goodCap: number): [number, number][][] => {
   const quotientByResidue = Array.from({ length: 20 }, () => new Set<number>());
   for (let badMiss = 0; badMiss <= notes; badMiss += 1) {
-    for (let good = 0; good + badMiss <= notes; good += 1) {
+    for (let good = 0; good <= Math.min(goodCap, notes - badMiss); good += 1) {
       const base = 63 * good + 180 * badMiss;
       const residue = ((base % 20) + 20) % 20;
       quotientByResidue[residue].add((base - residue) / 20);
@@ -88,11 +89,11 @@ const scoresFromNormalIntervals = (notes: number, intervals: [number, number][][
   return [...scores].sort((a, b) => a - b);
 };
 
-const scoresFromCounts = (notes: number, maxCombo: number | null): number[] => {
+const scoresFromCounts = (notes: number, maxCombo: number | null, goodCap: number): number[] => {
   const scores = new Set<number>();
-  if (maxCombo === null) return scoresFromNormalIntervals(notes, normalKIntervals(notes));
+  if (maxCombo === null) return scoresFromNormalIntervals(notes, normalKIntervals(notes, goodCap));
   for (let badMiss = 0; badMiss <= notes; badMiss += 1) {
-    for (let good = 0; good + badMiss <= notes; good += 1) scores.add(scoreFromCounts(notes, good, badMiss, maxCombo));
+    for (let good = 0; good <= Math.min(goodCap, notes - badMiss); good += 1) scores.add(scoreFromCounts(notes, good, badMiss, maxCombo));
   }
   return [...scores].sort((a, b) => a - b);
 };
@@ -119,14 +120,15 @@ export function nearestReachableScores(scores: number[], target: number, limit =
   return scores.slice(start, start + limit).sort((a, b) => Math.abs(a - target) - Math.abs(b - target) || a - b);
 }
 
-export function analyzeReachableScores(notes: number, mode: ReachabilityMode = "normal", maxCombo: number | null = null, _rounding: RoundingMode = "nearest"): ReachableScoreAnalysis {
+export function analyzeReachableScores(notes: number, mode: ReachabilityMode = "normal", maxCombo: number | null = null, goodCap = notes, _rounding: RoundingMode = "nearest"): ReachableScoreAnalysis {
   validateNotes(notes);
+  const effectiveGoodCap = Math.max(0, Math.min(notes, Math.trunc(goodCap)));
   const effectiveCombo = mode === "fixedCombo" ? Math.max(0, Math.min(notes, Math.trunc(maxCombo ?? notes))) : null;
   let scores: number[];
   if (mode === "fc") {
     const values = new Set<number>();
-    for (let good = 0; good <= notes; good += 1) values.add(scoreFromCounts(notes, good, 0, notes));
+    for (let good = 0; good <= effectiveGoodCap; good += 1) values.add(scoreFromCounts(notes, good, 0, notes));
     scores = [...values].sort((a, b) => a - b);
-  } else scores = scoresFromCounts(notes, effectiveCombo);
-  return { notes, mode, maxCombo: effectiveCombo, scores, total: scores.length, min: scores[0] ?? 0, max: scores[scores.length - 1] ?? 0, buckets: addBuckets(scores), confidence: "formula" };
+  } else scores = scoresFromCounts(notes, effectiveCombo, effectiveGoodCap);
+  return { notes, goodCap: effectiveGoodCap, mode, maxCombo: effectiveCombo, scores, total: scores.length, min: scores[0] ?? 0, max: scores[scores.length - 1] ?? 0, buckets: addBuckets(scores), confidence: "formula" };
 }

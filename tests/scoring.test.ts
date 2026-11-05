@@ -30,6 +30,13 @@ describe("scoring core", () => {
     expect(exact[0]?.perfect).toBe(900);
   });
 
+  it("respects a Tap+Hold Good cap", () => {
+    const fc = solveFcTarget(1000, 968500, "nearest", "nearest", 50);
+    expect(fc.every((item) => item.good <= 50)).toBe(true);
+    const normal = solveNormalTarget(1000, 800, 830000, "nearest", "nearest", 50);
+    expect(normal.every((item) => item.good <= 50)).toBe(true);
+  });
+
   it("solves very large custom note counts without enumerating every Good count", () => {
     const result = solveFcTarget(10_000_000, 999999, "nearest");
     expect(result.length).toBeGreaterThan(0);

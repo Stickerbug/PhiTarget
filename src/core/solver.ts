@@ -21,9 +21,10 @@ export type NormalSolution = {
   delta: number;
 };
 
-export function solveFcTarget(notes: number, target: number, match: TargetMatch, rounding: RoundingMode = "nearest"): FcSolution[] {
+export function solveFcTarget(notes: number, target: number, match: TargetMatch, rounding: RoundingMode = "nearest", goodCap = notes): FcSolution[] {
   if (!Number.isInteger(notes) || notes <= 0) throw new Error("Notes must be a positive integer");
   if (!Number.isInteger(target) || target < 0) throw new Error("Target must be a non-negative integer");
+  if (!Number.isInteger(goodCap) || goodCap < 0 || goodCap > notes) throw new Error("Good cap must be between zero and notes");
   const candidate = (good: number): FcSolution => {
     const result = score({ notes, perfect: notes - good, good, bad: 0, miss: 0, maxCombo: notes }, rounding);
     const achieved = Number(result.display);
@@ -31,15 +32,15 @@ export function solveFcTarget(notes: number, target: number, match: TargetMatch,
   };
   const achievedAt = (good: number) => Number(candidate(good).result.display);
   let low = 0;
-  let high = notes;
+  let high = goodCap;
   while (low < high) {
     const mid = Math.floor((low + high) / 2);
     if (achievedAt(mid) >= target) low = mid + 1;
     else high = mid;
   }
-  const boundary = Math.max(0, Math.min(notes, low));
+  const boundary = Math.max(0, Math.min(goodCap, low));
   const nearby = [...new Set([boundary - 2, boundary - 1, boundary, boundary + 1, boundary + 2])]
-    .filter((good) => good >= 0 && good <= notes)
+    .filter((good) => good >= 0 && good <= goodCap)
     .map(candidate)
     .sort((a, b) => Math.abs(a.delta) - Math.abs(b.delta) || a.good - b.good);
   if (match === "nearest") return nearby.slice(0, 3);
@@ -48,10 +49,11 @@ export function solveFcTarget(notes: number, target: number, match: TargetMatch,
 }
 
 /** Solve a normal-mode target while grouping Bad and Miss into one score-equivalent error count. */
-export function solveNormalTarget(notes: number, maxCombo: number, target: number, match: TargetMatch, rounding: RoundingMode = "nearest"): NormalSolution[] {
+export function solveNormalTarget(notes: number, maxCombo: number, target: number, match: TargetMatch, rounding: RoundingMode = "nearest", goodCap = notes): NormalSolution[] {
   if (!Number.isInteger(notes) || notes <= 0) throw new Error("Notes must be a positive integer");
   if (!Number.isInteger(maxCombo) || maxCombo < 0 || maxCombo > notes) throw new Error("Max Combo must be between zero and notes");
   if (!Number.isInteger(target) || target < 0) throw new Error("Target must be a non-negative integer");
+  if (!Number.isInteger(goodCap) || goodCap < 0 || goodCap > notes) throw new Error("Good cap must be between zero and notes");
   const candidate = (good: number, badMiss: number): NormalSolution => {
     const result = score({ notes, perfect: notes - good - badMiss, good, bad: badMiss, miss: 0, maxCombo }, rounding);
     const achieved = Number(result.display);
@@ -64,7 +66,7 @@ export function solveNormalTarget(notes: number, maxCombo: number, target: numbe
   for (let badMiss = 0; badMiss <= notes; badMiss += 1) {
     const idealGood = Math.round((base - 900000 * badMiss) / 315000);
     for (const good of [idealGood - 1, idealGood, idealGood + 1]) {
-      if (good < 0 || good + badMiss > notes) continue;
+      if (good < 0 || good > goodCap || good + badMiss > notes) continue;
       candidates.push(candidate(good, badMiss));
     }
   }
@@ -81,9 +83,10 @@ export function solveNormalTarget(notes: number, maxCombo: number, target: numbe
  * for the default reachability view; exact sequence validation still needs a
  * full chart event model.
  */
-export function solveNormalUnrestrictedTarget(notes: number, target: number, match: TargetMatch, rounding: RoundingMode = "nearest"): NormalSolution[] {
+export function solveNormalUnrestrictedTarget(notes: number, target: number, match: TargetMatch, rounding: RoundingMode = "nearest", goodCap = notes): NormalSolution[] {
   if (!Number.isInteger(notes) || notes <= 0) throw new Error("Notes must be a positive integer");
   if (!Number.isInteger(target) || target < 0) throw new Error("Target must be a non-negative integer");
+  if (!Number.isInteger(goodCap) || goodCap < 0 || goodCap > notes) throw new Error("Good cap must be between zero and notes");
   const candidate = (good: number, badMiss: number, maxCombo: number): NormalSolution => {
     const result = score({ notes, perfect: notes - good - badMiss, good, bad: badMiss, miss: 0, maxCombo }, rounding);
     const achieved = Number(result.display);
@@ -99,7 +102,7 @@ export function solveNormalUnrestrictedTarget(notes: number, target: number, mat
       const base = 900000 * notes + 100000 * maxCombo - target * notes;
       const idealGood = Math.round((base - 900000 * badMiss) / 315000);
       for (const good of [idealGood - 1, idealGood, idealGood + 1]) {
-        if (good < 0 || good + badMiss > notes) continue;
+        if (good < 0 || good > goodCap || good + badMiss > notes) continue;
         candidates.push(candidate(good, badMiss, maxCombo));
       }
     }
