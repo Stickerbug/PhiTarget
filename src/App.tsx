@@ -1,6 +1,7 @@
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import { solveFcTarget, solveNormalTarget, solveNormalUnrestrictedTarget } from "./core/solver";
+import { analyzeReachableScores, nearestReachableScores, type ReachabilityMode } from "./core/reachable";
 import type { ChartDataset, ChartRecord } from "./data/types";
 
 const number = new Intl.NumberFormat("en-US");
@@ -58,6 +59,8 @@ export default function App() {
   const [match, setMatch] = useState<"exact" | "atLeast" | "nearest">("nearest");
   const [scoreMode, setScoreMode] = useState<"normal" | "fc" | "combo">("normal");
   const [maxCombo, setMaxCombo] = useState(1000);
+  const [reachabilityMode, setReachabilityMode] = useState<ReachabilityMode>("normal");
+  const [reachabilityCombo, setReachabilityCombo] = useState(1000);
 
   useEffect(() => { import("./data/dataset").then((module) => setDataset(module.dataset)); }, []);
   const charts = dataset?.charts ?? [];
@@ -98,6 +101,15 @@ export default function App() {
       return { solutions, error: "" };
     } catch (error) { return { solutions: [], error: error instanceof Error ? error.message : "Invalid input" }; }
   }, [effectiveCombo, match, notes, scoreMode, target]);
+  const reachableState = useMemo(() => {
+    if (!dataset || !selected) return { analysis: null, error: "" };
+    try {
+      return { analysis: analyzeReachableScores(notes, reachabilityMode, reachabilityMode === "fixedCombo" ? reachabilityCombo : null), error: "" };
+    } catch (error) {
+      return { analysis: null, error: error instanceof Error ? error.message : "无法计算可达分数" };
+    }
+  }, [dataset, notes, reachabilityCombo, reachabilityMode, selected]);
+  const reachableNearby = useMemo(() => reachableState.analysis ? nearestReachableScores(reachableState.analysis.scores, target) : [], [reachableState.analysis, target]);
   const selectedArt = selected ? assetUrl(selected.songId, "illustration") : "";
   const selectedBlur = selected ? assetUrl(selected.songId, "illustrationBlur") : "";
   const chapterLabel = chapter === "all" ? "Phigros" : chapterDisplayName(chapter);
@@ -124,5 +136,6 @@ export default function App() {
       </div>
     </section>
     <section className="calculator-panel"><div className="calculator-heading"><h2>目标分数反推</h2><span>{number.format(songRows.length)} 首歌曲</span></div><div className="solver-controls"><label>计分约束<select value={scoreMode} onChange={(event) => setScoreMode(event.target.value as typeof scoreMode)}><option value="normal">普通模式 / 不限制 FC</option><option value="fc">FC / 无 Bad · Miss</option><option value="combo">指定 Max Combo / 合并 Bad + Miss</option></select></label><label>目标分数<input type="number" min="0" max="1000000" value={target} onChange={(event) => setTarget(Number(event.target.value))} /></label>{scoreMode === "combo" && <label>Max Combo<input type="number" min="0" max={notes} value={maxCombo} onChange={(event) => setMaxCombo(Number(event.target.value))} /></label>}<label>求解方式<select value={match} onChange={(event) => setMatch(event.target.value as typeof match)}><option value="nearest">最接近目标</option><option value="exact">精确命中</option><option value="atLeast">至少达到</option></select></label></div><p className="formula-line">N = {number.format(notes)} · {scoreMode === "normal" ? "普通模式 · 不限制 FC · Bad + Miss 合并显示，Max Combo 取理论样本" : scoreMode === "fc" ? "FC · Score = 1,000,000 − 315,000 × Good / N" : `C = ${number.format(effectiveCombo)} · Bad + Miss 作为同一误差组计算`}</p>{state.error ? <p className="error">{state.error}</p> : <div className="solutions">{state.solutions.map((solution) => <div className="solution" key={`${solution.good}-${solution.maxCombo}-${solution.result.display}-${"badMiss" in solution ? solution.badMiss : 0}`}><div><strong>{formatScore(solution.result.display)}</strong><small>P {solution.perfect} · G {solution.good} · {"badMiss" in solution ? `B + M ${solution.badMiss}` : "B 0 · M 0"} · C {solution.maxCombo}</small></div><b className={solution.delta === 0 ? "exact" : "delta"}>{solution.delta > 0 ? "+" : ""}{formatScore(solution.delta)}</b></div>)}</div>}</section>
+    <section className="calculator-panel reachable-panel"><div className="calculator-heading"><h2>可达分数</h2><span>公式可达</span></div><div className="solver-controls reachable-controls"><label>计算模型<select value={reachabilityMode} onChange={(event) => setReachabilityMode(event.target.value as ReachabilityMode)}><option value="normal">普通模式 / 不限制 FC</option><option value="fc">FC</option><option value="fixedCombo">固定 Max Combo</option></select></label>{reachabilityMode === "fixedCombo" && <label>Max Combo<input type="number" min="0" max={notes} value={Math.min(reachabilityCombo, notes)} onChange={(event) => setReachabilityCombo(Number(event.target.value))} /></label>}<label>目标附近分数<input type="number" min="0" max="1000000" value={target} onChange={(event) => setTarget(Number(event.target.value))} /></label></div>{reachableState.error ? <p className="error">{reachableState.error}</p> : reachableState.analysis && <><div className="reachable-summary"><div><strong>{number.format(reachableState.analysis.total)}</strong><small>不同可达分数</small></div><div><strong>{number.format(reachableState.analysis.min)}</strong><small>最低</small></div><div><strong>{number.format(reachableState.analysis.max)}</strong><small>最高</small></div></div><div className="reachable-nearby"><small>目标 {number.format(target)} 附近</small><div>{reachableNearby.map((scoreValue) => <span key={scoreValue} className={scoreValue === target ? "exact" : ""}>{number.format(scoreValue)}</span>)}</div></div><div className="reachable-buckets"><small>分数分布（每 5,000 分）</small><div>{reachableState.analysis.buckets.map((bucket) => <span key={bucket.start}>{number.format(bucket.start)}–{number.format(bucket.end)} <b>{number.format(bucket.count)}</b></span>)}</div></div><p className="reachable-note">结果只依据计分公式和数量约束，未验证音符类型、错误位置或真实 Max Combo；不代表每个分数都能在该谱面实际打出。</p></>}</section>
   </main>;
 }

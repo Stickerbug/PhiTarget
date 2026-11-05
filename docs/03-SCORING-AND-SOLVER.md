@@ -92,5 +92,7 @@ P/G/B/M 总数不能唯一确定 Max Combo，因为 Bad/Miss 的位置影响最�
 - 每个分数 1–3 个代表性判定方案；
 - CSV/JSON 导出。
 
+当前网页已提供三种公式可达模型：普通模式不限制 FC，并把 `0 <= C <= N` 作为理论 Max Combo 范围；FC 模式枚举 `G=0..N`；固定 Max Combo 模式枚举 `G/Z`。普通模式使用 `K=63G+180Z-20C` 的区间合并计算分数集合，避免枚举三重组合；结果面板显示不同分数总数、最低/最高分、目标附近分数和 5,000 分分桶。所有结果仍标记为“公式可达”，不代表实际谱面顺序一定可实现。
+
 ## 求解器输出字段
 `chartId, targetScore, achievedScore, delta, perfect, good, bad, miss, maxCombo, method, confidenceLevel, formulaVersion, chartVersion`。
