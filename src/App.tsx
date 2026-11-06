@@ -4,6 +4,8 @@ import { solveFcTarget, solveNormalTarget, solveNormalUnrestrictedTarget } from 
 import { analyzeReachableScores, nearestReachableScores, type ReachabilityMode } from "./core/reachable";
 import type { ChartConstraintProfile, ChartDataset, ChartRecord } from "./data/types";
 import { chapterArtworkFor } from "./data/chapterArtwork";
+import ChallengePlanner from "./components/ChallengePlanner";
+import PlayerProfile from "./components/PlayerProfile";
 
 const number = new Intl.NumberFormat("en-US");
 const difficultyOrder = ["ez", "hd", "in", "at"];
@@ -11,6 +13,7 @@ const difficultyName: Record<string, string> = { ez: "EZ", hd: "HD", in: "IN", a
 const sortNames = { default: "默认", title: "曲名", constant: "定数" } as const;
 type SortMode = keyof typeof sortNames;
 type SortDirection = "asc" | "desc";
+type AppView = "library" | "challenge" | "profile";
 const sortModes: SortMode[] = ["default", "title", "constant"];
 const resourceCdn = "https://cdn.jsdelivr.net/gh/7aGiven/Phigros_Resource";
 const assetUrl = (songId: string, branch: "illustration" | "illustrationLowRes" | "illustrationBlur") => `${resourceCdn}@${branch}/${encodeURIComponent(songId)}.png`;
@@ -87,6 +90,7 @@ export default function App() {
   const [maxCombo, setMaxCombo] = useState(1000);
   const [reachabilityMode, setReachabilityMode] = useState<ReachabilityMode>("normal");
   const [reachabilityCombo, setReachabilityCombo] = useState(1000);
+  const [view, setView] = useState<AppView>("library");
 
   useEffect(() => { import("./data/dataset").then((module) => { setDataset(module.dataset); setConstraintMap(module.chartConstraints); }); }, []);
   const charts = dataset?.charts ?? [];
@@ -157,6 +161,8 @@ export default function App() {
   if (!dataset) return <main className="loading-screen"><span className="loading-mark">Φ</span><p>正在读取曲库索引…</p></main>;
 
   return <main className="app-shell">
+    <nav className="app-nav" aria-label="PhiTarget 页面"><button type="button" className={view === "library" ? "active" : ""} onClick={() => setView("library")}><span>曲库</span><small>目标分数</small></button><button type="button" className={view === "challenge" ? "active" : ""} onClick={() => setView("challenge")}><span>课题模式</span><small>三曲规划</small></button><button type="button" className={view === "profile" ? "active" : ""} onClick={() => setView("profile")}><span>玩家数据</span><small>本地记录</small></button></nav>
+    {view === "challenge" ? <ChallengePlanner charts={charts} /> : view === "profile" ? <PlayerProfile charts={charts} /> : <>
     <section className="game-screen" style={chapterArt ? { "--selected-art": `url(${chapterArt})` } as CSSProperties : undefined}>
       <div className="network-lines" />
       <header className="game-header"><div className="game-header-title"><small><ChapterText value={chapterOuterLabel} /></small><strong><ChapterText value={chapterLabel} /></strong></div><div className="player-chip"><span className="player-level">40</span></div></header>
@@ -190,5 +196,6 @@ export default function App() {
     </section>
     <section className="calculator-panel"><div className="calculator-heading"><h2>目标分数反推</h2><span>{number.format(songRows.length)} 首歌曲</span></div><div className="solver-controls"><label>计分约束<select value={scoreMode} onChange={(event) => setScoreMode(event.target.value as typeof scoreMode)}><option value="normal">普通模式 / 不限制 FC</option><option value="fc">FC / 无 Bad · Miss</option><option value="combo">指定 Max Combo / 合并 Bad + Miss</option></select></label><label>目标分数<input type="number" min="0" max="1000000" value={target} onChange={(event) => setTarget(Number(event.target.value))} /></label>{scoreMode === "combo" && <label>Max Combo<input type="number" min="0" max={notes} value={maxCombo} onChange={(event) => setMaxCombo(Number(event.target.value))} /></label>}<label>求解方式<select value={match} onChange={(event) => setMatch(event.target.value as typeof match)}><option value="nearest">最接近目标</option><option value="exact">精确命中</option><option value="atLeast">至少达到</option></select></label></div><p className="formula-line">N = {number.format(notes)} · {scoreMode === "normal" ? "普通模式 · 不限制 FC" : scoreMode === "fc" ? "FC 模式" : `固定 Max Combo = ${number.format(effectiveCombo)}`} · Bad + Miss 按同一分值误差组计算</p>{state.error ? <p className="error">{state.error}</p> : <div className="solutions">{state.solutions.map((solution) => { const rank = solutionRank(solution); return <div className="solution" key={`${solution.good}-${solution.maxCombo}-${solution.result.display}-${"badMiss" in solution ? solution.badMiss : 0}`}><div><strong>{formatScore(solution.result.display)}</strong><small>P {solution.perfect} · G {solution.good} · {"badMiss" in solution ? `B + M ${solution.badMiss}` : "B 0 · M 0"} · C {solution.maxCombo}</small></div><span className="solution-rank"><img src={rankAssets[rank]} alt={rankLabel[rank]} /><small>{rankLabel[rank]} · {"badMiss" in solution ? (solution.badMiss === 0 && solution.maxCombo === notes ? "FC" : "普通") : "FC"}</small></span><b className={solution.delta === 0 ? "exact" : "delta"}>{solution.delta > 0 ? "+" : ""}{formatScore(solution.delta)}</b></div>; })}</div>}</section>
     <section className="calculator-panel reachable-panel"><div className="calculator-heading"><h2>可达分数</h2><span>公式 + 结构参考</span></div><div className="solver-controls reachable-controls"><label>计算模型<select value={reachabilityMode} onChange={(event) => setReachabilityMode(event.target.value as ReachabilityMode)}><option value="normal">普通模式 / 不限制 FC</option><option value="fc">FC</option><option value="fixedCombo">固定 Max Combo</option></select></label>{reachabilityMode === "fixedCombo" && <label>Max Combo<input type="number" min="0" max={notes} value={Math.min(reachabilityCombo, notes)} onChange={(event) => setReachabilityCombo(Number(event.target.value))} /></label>}<label>目标附近分数<input type="number" min="0" max="1000000" value={target} onChange={(event) => setTarget(Number(event.target.value))} /></label></div>{reachableState.error ? <p className="error">{reachableState.error}</p> : reachableState.analysis && <><div className="reachable-summary"><div><strong>{number.format(reachableState.analysis.total)}</strong><small>不同可达分数</small></div><div><strong>{number.format(reachableState.analysis.min)}</strong><small>最低</small></div><div><strong>{number.format(reachableState.analysis.max)}</strong><small>最高</small></div></div><div className="reachable-nearby"><small>目标 {number.format(target)} 附近</small><div>{reachableNearby.map((scoreValue) => <span key={scoreValue} className={scoreValue === target ? "exact" : ""}>{number.format(scoreValue)}</span>)}</div></div><div className="reachable-buckets"><small>分数分布（每 5,000 分）</small><div>{reachableState.analysis.buckets.map((bucket) => <span key={bucket.start}>{number.format(bucket.start)}–{number.format(bucket.end)} <b>{number.format(bucket.count)}</b></span>)}</div></div><p className="reachable-note">Good 上限为 {number.format(reachableState.analysis.goodCap)}（Tap + Hold）；Flick/Drag 没有 Good。{selectedConstraint ? `本谱面已离线检查 ${number.format(selectedConstraint.crossTypeConflictGroupCount)} 组跨类型同触点音符；` : "当前没有结构摘要；"}本计算不保证每个分数在真实谱面中都能打出。</p></>}</section>
+    </>}
   </main>;
 }

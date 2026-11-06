@@ -5,5 +5,19 @@
   "confidence": "approximate",
   "calibrationStatus": "pending-real-result-screenshots",
   "badgeRules": [],
-  "notes": "Do not treat formula or badge values as calibrated until checked against the target game version."
+  "challengeMode": {
+    "songCount": 3,
+    "distinctSongs": true,
+    "levelValue": "floor(chart.constant)",
+    "scoreFormula": "1000000 * (Perfect + 0.65 * Good) / Notes",
+    "badgeThresholds": {
+      "green": 2460000,
+      "blue": 2700000,
+      "red": 2850000,
+      "gold": 2940000,
+      "rainbow": 3000000
+    },
+    "confidence": "community-candidate"
+  },
+  "notes": "Normal ranks and challenge badge thresholds are candidates until checked against the target game version. The planner keeps these values separate from the normal score ranks."
 }
