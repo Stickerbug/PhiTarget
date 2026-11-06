@@ -28,3 +28,39 @@ export type ChartDataset = {
   songMeta: Record<string, SongMetadata>;
   charts: ChartRecord[];
 };
+
+export type ConstraintGroup = {
+  time: number;
+  positionX: number;
+  tapHold: number;
+  dragFlick: number;
+};
+
+export type ChartConstraintProfile = {
+  chartId: string;
+  songId: string;
+  difficulty: string;
+  sourcePath: string;
+  sourceFormatVersion: number | null;
+  noteCount: number;
+  noteCounts: NoteCounts & { unknown: number };
+  declaredNoteCount: number | null;
+  declaredNoteCounts: NoteCounts;
+  matchesDeclaredNoteCounts: boolean;
+  holdCount: number;
+  maxHoldTime: number;
+  simultaneousGroupCount: number;
+  crossTypeConflictGroupCount: number;
+  crossTypeConflictPairCount: number;
+  crossTypeGroups: ConstraintGroup[];
+  model: string;
+  error?: string;
+};
+
+export type ChartConstraintDataset = {
+  schemaVersion: string;
+  generatedAt: string;
+  source: { repository: string; branch: string; commit: string; url: string };
+  complete: boolean;
+  charts: Record<string, ChartConstraintProfile>;
+};

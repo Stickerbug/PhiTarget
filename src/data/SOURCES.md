@@ -2,7 +2,7 @@
 
 当前 `charts.json` 是由公开数据源生成的静态快照，方便纯静态站点离线筛选。
 
-- `Catrong/phi-plugin` 的 `resources/info/info.csv` 提供曲名、曲师、曲绘画师、定数和各难度谱师；`resources/info/notesInfo.json` 提供 Tap/Hold/Flick/Drag 计数。该仓库采用 GPL-3.0，快照保留来源说明；PhiTarget 没有复制其代码、曲绘或字体。
+- `Catrong/phi-plugin` 的 `resources/info/info.csv` 提供曲名、曲师、曲绘画师、定数和各难度谱师；`resources/info/notesInfo.json` 按 `Tap / Drag / Hold / Flick` 顺序提供四类音符计数。该仓库采用 GPL-3.0，快照保留来源说明；PhiTarget 没有复制其代码、曲绘或字体。
 - `Catrong/phi-plugin` 的 `resources/info/infolist.json` 提供歌曲 BPM 和时长，页面将这两项并入歌曲详情；缺失值显示为 `—`。
 - Kyou (`https://kyou.net.cn`) 的公开数据快照提供曲包/章节映射。其再分发条款仍需在正式公开发布前确认，因此生成文件保留 `source terms pending review` 标记。
 
@@ -12,7 +12,19 @@
 node scripts/import-public-chart-data.mjs
 ```
 
-数据只保存谱面统计，不保存完整谱面事件 JSON。`noteCount` 是四类统计之和，作为目标分数公式的 N；完整谱面顺序验证仍属于后续阶段。
+`charts.json` 只保存谱面统计，不保存完整谱面事件 JSON。`noteCount` 是四类统计之和，作为目标分数公式的 N。
+
+## 谱面结构摘要
+
+`chartConstraints.json` 由 `scripts/analyze-chart-constraints.mjs` 在构建前生成。脚本读取 [Phigros_Resource 的 chart 分支](https://github.com/7aGiven/Phigros_Resource/tree/chart) 的完整谱面 JSON，只保留每张谱面的音符计数、长条统计，以及“同时间 + 同 positionX”下同时出现 Tap/Hold 与 Drag/Flick 的候选组。当前摘要不包含原始谱面文件，也不模拟判定窗口、滑动路径、输入顺序或多指操作，因此页面只把它作为结构理论提示，不把候选组直接当成实际不可达结论。
+
+完整分析约需下载 2.6 GiB 原始 JSON，原始缓存位于被忽略的 `.cache/`；生成的摘要约 1.4 MiB：
+
+```bash
+node scripts/analyze-chart-constraints.mjs --all --concurrency=8
+```
+
+开发时可用 `--limit=1` 或 `--chart=曲名.曲师::in` 只分析少量谱面。
 
 ## Phigros_Resource 曲绘
 

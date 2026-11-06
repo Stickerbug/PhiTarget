@@ -66,7 +66,10 @@ for (const [rowIndex, row] of infoRows.entries()) {
     const constant = numberOrNull(row[difficulty]);
     if (constant === null) continue;
     const counts = notesByDifficulty[difficulty]?.t ?? null;
-    const noteCounts = counts ? { tap: counts[0] ?? null, hold: counts[1] ?? null, flick: counts[2] ?? null, drag: counts[3] ?? null } : { tap: null, hold: null, flick: null, drag: null };
+    // notesInfo.json follows the chart format order: [Tap, Drag, Hold, Flick].
+    // Keep the object keys explicit so the score model cannot accidentally treat
+    // Drag/Flick as Good-capable notes.
+    const noteCounts = counts ? { tap: counts[0] ?? null, drag: counts[1] ?? null, hold: counts[2] ?? null, flick: counts[3] ?? null } : { tap: null, hold: null, flick: null, drag: null };
     const noteCount = counts ? counts.reduce((sum, count) => sum + count, 0) : null;
     charts.push({
       chartId: `${row.id}::${difficulty.toLowerCase()}`,

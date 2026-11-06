@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "import:charts": "node scripts/import-public-chart-data.mjs",
+    "analyze:charts": "node scripts/analyze-chart-constraints.mjs",
     "build": "tsc -b && vite build",
     "test": "vitest run",
     "test:watch": "vitest",

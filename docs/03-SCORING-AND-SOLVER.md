@@ -44,7 +44,7 @@ FC：`B=0, M=0, P+G=N, C=N`。
 ### Max Combo 的边界
 P/G/B/M 总数不能唯一确定 Max Combo，因为 Bad/Miss 的位置影响最长连续命中段。仅有总数时只能输出理论上下界或指定 C 的结果，不能声称精确恢复实际 Max Combo。
 
-普通模式计分本身不需要 note 类型；验证哪些 G/B 组合符合谱面音符类型，才需要 Tap/Hold/Drag/Flick 统计；验证真实断连位置与 Max Combo，才需要谱面顺序或等价序列模型。
+普通模式计分本身不需要 note 类型；验证哪些 G/B 组合符合谱面音符类型，才需要 Tap/Hold/Drag/Flick 统计；验证真实断连位置与 Max Combo，才需要谱面顺序或等价序列模型。PhiTarget 目前只做结构层的候选检查，不实现 Phira 或游戏本体的判定引擎。
 
 ## 课题模式
 课题模式不使用 combo score，只使用准确度部分：
@@ -92,7 +92,9 @@ P/G/B/M 总数不能唯一确定 Max Combo，因为 Bad/Miss 的位置影响最�
 - 每个分数 1–3 个代表性判定方案；
 - CSV/JSON 导出。
 
-当前网页已提供三种公式可达模型：普通模式不限制 FC，并把 `0 <= C <= N` 作为理论 Max Combo 范围；FC 模式枚举 `G=0..N`；固定 Max Combo 模式枚举 `G/Z`。由于 Flick/Drag 没有 Good，网页把 `G` 上限限制为 `Tap + Hold`，缺少音符类型统计时才退回到 `N`。普通模式使用 `K=63G+180Z-20C` 的区间合并计算分数集合，避免枚举三重组合；结果面板显示不同分数总数、最低/最高分、目标附近分数和 5,000 分分桶。所有结果仍标记为“公式可达”，不代表实际谱面顺序一定可实现。
+当前网页已提供三种公式可达模型：普通模式不限制 FC，并把 `0 <= C <= N` 作为理论 Max Combo 范围；FC 模式枚举 `G=0..N`；固定 Max Combo 模式枚举 `G/Z`。由于 Flick/Drag 没有 Good，网页把 `G` 上限限制为 `Tap + Hold`，缺少音符类型统计时才退回到 `N`。普通模式使用 `K=63G+180Z-20C` 的区间合并计算分数集合，避免枚举三重组合；结果面板显示不同分数总数、最低/最高分、目标附近分数和 5,000 分分桶。
+
+构建期还会对公开谱面 JSON 做结构摘要：检查同一时间、同一 `positionX` 的音符组，标出同时包含 Tap/Hold 与 Drag/Flick 的候选组。这可以解释“某些 Good + Miss 组合可能因同触点而受限”的来源，但因为 Bad/Miss 在分数上被合并、判定宽度和输入路径未建模，页面只显示结构提示，不能把它当成完整的实际可达性证明。
 
 ## 求解器输出字段
 `chartId, targetScore, achievedScore, delta, perfect, good, bad, miss, maxCombo, method, confidenceLevel, formulaVersion, chartVersion`。
