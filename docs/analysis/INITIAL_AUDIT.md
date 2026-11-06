@@ -61,9 +61,9 @@ Phase 1 需要一个可审计、可版本化的曲库来源，至少覆盖 `char
 
 ## 纯静态部署可行性
 
-产品核心适合纯静态部署：HTML/CSS/JS/JSON 托管在 CDN，公式计算在主线程，组合搜索和可达分数枚举在 Web Worker，玩家成绩放在浏览器 IndexedDB。首版不需要账号、后端或 sessionToken。
+产品核心适合纯静态部署：HTML/CSS/JS/JSON 托管在 CDN，公式计算在主线程，组合搜索和可达分数枚举在 Web Worker。玩家通过 sessionToken 直接读取 PhiHub 的 TapTap 云档，映射后的成绩只放在当前页面内存，不写入 IndexedDB。
 
-IndexedDB 预留 stores：`profiles`、`chartRecords`、`scoreHistory`、`savedPlans`、`preferences`、`importMetadata`。导入、导出、删除与备份必须在本地完成。
+云档读取依赖 `https://phib19.top:8080/get/cloud/saves` 的跨域许可。PhiTarget 不保存 token、成绩、导出文件或备份，也不提供 JSON/CSV 上传和手动成绩库。
 
 ## UI 方案与参考图映射
 

@@ -57,12 +57,3 @@ export function solveChallengeTarget(notes: number, target: number, match: Chall
   if (match === "exact") return candidates.filter((item) => item.delta === 0).slice(0, 10);
   return candidates.filter((item) => item.delta >= 0).sort((a, b) => Math.abs(a.delta) - Math.abs(b.delta) || a.badMiss - b.badMiss).slice(0, 5);
 }
-
-export function challengeAverageRequired(target: number, completedScores: number[]): { remaining: number; needed: number; average: number; maxRemaining: number; feasible: boolean } {
-  const scores = completedScores.filter((score) => Number.isFinite(score)).map((score) => Math.max(0, Math.min(1_000_000, Math.trunc(score))));
-  const remaining = Math.max(0, 3 - scores.length);
-  const needed = target - scores.reduce((sum, score) => sum + score, 0);
-  const average = remaining > 0 ? Math.max(0, Math.ceil(needed / remaining)) : Math.max(0, needed);
-  const maxRemaining = remaining * 1_000_000;
-  return { remaining, needed, average, maxRemaining, feasible: needed <= maxRemaining };
-}

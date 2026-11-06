@@ -3,14 +3,14 @@
 **产品名：** PhiTarget  
 **副标题：** Phigros Goal Score & Challenge Planner  
 **定位：** Phigros 目标分数反推、可达分数分析、课题模式三曲规划工具。  
-**原则：** 纯静态优先、Local-first、无需账号、玩家数据默认只留在本地。
+**原则：** 纯静态优先、无需账号、成绩通过 sessionToken 从 TapTap 云存档读取，PhiTarget 不保存玩家凭证或成绩。
 
 ## 文件导航
 - `docs/00-NAMING.md`：名称与品牌
 - `docs/01-PRD.md`：产品需求
-- `docs/02-ARCHITECTURE.md`：纯静态技术架构
+- `docs/02-ARCHITECTURE.md`：静态应用与云存档读取架构
 - `docs/03-SCORING-AND-SOLVER.md`：计分、反推、可达分数
-- `docs/04-PLAYER-DATA.md`：玩家数据与导入适配器
+- `docs/04-PLAYER-DATA.md`：TapTap 云存档读取与玩家数据边界
 - `docs/05-UI-DESIGN.md`：UI 视觉与交互规范
 - `docs/06-ROADMAP-AND-ACCEPTANCE.md`：开发阶段和验收标准
 - `CODEX_IMPLEMENTATION_PROMPT.md`：交给 Codex 的总提示词
@@ -18,7 +18,7 @@
 
 ## 当前可运行基线
 
-仓库已初始化为 TypeScript + Vite + React 的静态应用。当前页面提供游戏式章节/歌曲选择、普通模式目标分数反推，以及 FC、固定 Max Combo 和普通模式理论可达分数分析；计分核心位于 `src/core/`，不依赖 UI 或浏览器 API。现已加入课题模式页面（铭牌阈值、三曲组合、单曲课题分反推、救场计算和个人成绩匹配排序）以及玩家数据页面（手动记录、JSON/CSV 导入、IndexedDB 本地历史和备份导出）。铭牌规则仍使用待校准的版本化配置。
+仓库已初始化为 TypeScript + Vite + React 的静态应用。当前页面提供游戏式章节/歌曲选择、普通模式目标分数反推，以及 FC、固定 Max Combo 和普通模式理论可达分数分析；计分核心位于 `src/core/`，不依赖 UI 或浏览器 API。课题模式页面提供铭牌阈值、三曲组合、单曲课题分反推和 TapTap 成绩匹配排序；玩家数据页面使用 Phigros sessionToken 直接读取 TapTap 云存档，并在当前页面内存中展示已匹配成绩。铭牌规则仍使用待校准的版本化配置。
 
 当前曲库快照已包含 327 首歌曲、1,037 张谱面，以及章节、曲师、曲绘画师、谱师、定数和四类音符统计。来源与再生成说明见 `src/data/SOURCES.md`。
 
@@ -46,4 +46,4 @@ npm run build
 6. PhiPlugin 图片仅作为视觉参考；不要复制其代码、曲绘、品牌资产或受限数据。检查原仓库许可证后再决定是否借鉴具体实现。
 
 ## 建议技术栈
-TypeScript + Vite + React（或沿用现有框架）+ IndexedDB + Web Worker + Vitest。第一版不需要后端。
+TypeScript + Vite + React（或沿用现有框架）+ Web Worker + Vitest。第一版不需要 PhiTarget 自有后端；TapTap 云档读取使用 PhiHub 公开的跨域接口。

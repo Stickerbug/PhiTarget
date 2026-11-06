@@ -1,69 +1,55 @@
-# 04 — 玩家数据与导入适配器
+# 04 — TapTap 云存档与玩家数据边界
 
 ## 设计原则
-玩家数据默认不离开设备。不要要求 sessionToken；不要将私人凭证写入 URL、日志、统计服务或 IndexedDB。不要把 PhiPlugin 设为唯一数据来源。
+
+玩家成绩来自其 Phigros `sessionToken` 绑定的 TapTap 云存档。PhiTarget 只在当前页面内存中使用 token 和映射后的成绩，不把它们写入 URL、localStorage、IndexedDB、日志、分析服务或自己的服务器。刷新页面后需要重新连接。
+
+这条链路依赖 PhiHub/phi-plugin 提供的公开跨域接口，接口或 CORS 策略变化时，页面应明确显示连接错误；不能把它伪装成 PhiTarget 自有的官方接口。
 
 ## 统一内部格式
-```json
-{
-  "source": "manual|phi-plugin|phigros-tools|other",
-  "sourceVersion": "optional",
-  "gameVersion": "optional",
-  "updatedAt": "ISO-8601",
-  "records": [{
-    "songId": "stable-song-id",
-    "difficulty": "IN",
-    "score": 987654,
-    "accuracy": 99.12,
-    "perfect": null,
-    "good": null,
-    "bad": null,
-    "miss": null,
-    "maxCombo": null,
-    "fc": true,
-    "phi": false,
-    "playedAt": null
-  }]
-}
+
+```ts
+type PhigrosCloudRecord = {
+  id: string;
+  chartId: string;
+  songId: string;
+  difficulty: "ez" | "hd" | "in" | "at";
+  score: number;
+  accuracy: number | null;
+  fc: boolean;
+  playedAt: string;
+  source: "taptap";
+};
+
+type PhigrosCloudProfile = {
+  playerId: string;
+  rks: number | null;
+  challengeModeRank: number | null;
+  updatedAt: string | null;
+  avatar: string | null;
+};
 ```
 
-字段可缺省。存档/查分 API 经常只有最高分、ACC、FC/Phi，不一定有每次结算的 P/G/B/M 和 Max Combo。不得假定成绩文件必然含完整历史。
+云档通常只有每张谱面的最高分、ACC、FC/Phi 和更新时间，不保证包含每次结算的 P/G/B/M、Max Combo 或完整游玩历史。规划器只能把这些数据当作个人成绩参考。
 
-## 数据来源优先级
-1. 用户手动录入；
-2. 用户导入 JSON/CSV；
-3. 用户从结算截图 OCR（后续功能）；
-4. PhiPlugin 导出文件；
-5. 其他站点/工具导出文件；
-6. 正式授权 API（只有对方明确提供接口、许可和 CORS/授权方案后）。
+## 读取流程
 
-## PhiPlugin 集成判断
-PhiPlugin README/CHANGELOG 表明其有 API 测试/公测、历史成绩同步、Bot 认领和渲染主题等功能；这不等于所有第三方网页都能稳定调用其内部接口。首选与插件作者合作增加脱敏导出命令，例如 `/phi goal export`，输出曲目成绩，不输出 sessionToken、API Secret、账号绑定凭据。
+1. 用户在玩家数据页面输入 sessionToken，并选择国服或国际服。
+2. 浏览器直接 POST 到 `https://phib19.top:8080/get/cloud/saves`，请求体只包含 token 和区域标记。
+3. `src/core/phigrosCloud.ts` 解析 `saveInfo` 与 `gameRecord`，按当前曲库的 `songId + difficulty` 映射到已知谱面。
+4. App 将记录放入 React state，课题规划器用它进行个人最佳分数缺口排序。
+5. 用户刷新或关闭页面后，内存中的 token 和成绩一起清除。
 
-首版仅实现通用 JSON/CSV 导入，不要逆向抓取机器人数据库，不要依赖某个公共实例，不要把未公开接口当稳定 API。
+## 安全边界
 
-## 数据适配器
-```text
-ManualInputAdapter
-LocalJsonAdapter
-LocalCsvAdapter
-PhiPluginExportAdapter
-PhigrosToolsExportAdapter
-```
-每个适配器只负责解析外部格式并映射到统一模型。核心规划器不应知道数据来源。
+- token 输入框使用密码类型，不回填、不自动保存。
+- 网络请求使用 HTTPS、`credentials: omit`，不携带 PhiTarget 的站点 cookie。
+- 错误提示只显示接口返回的错误文本或通用状态，不显示 token 和云档原文。
+- 不在客户端日志、埋点或异常上报中记录 token。
+- 不提供 JSON/CSV 上传、手动成绩录入、成绩导出或本地历史库；这些入口会造成数据与真实 TapTap 云档脱节。
 
-## 个人能力估计
-不要只看历史最高分。建议分别计算：
-- bestScore / bestAccuracy；
-- recentMedian；
-- recentP25（保守估计，需足够样本）；
-- recentBest；
-- historyCount；
-- lastPlayed；
-- FC/Phi；
-- dataFreshness。
+## 版本和缺失数据
 
-样本少时显示“数据不足”，不要输出伪精确成功概率。第一版可用近期中位数与保守分位数进行排序，不必宣称统计学意义上的真实胜率。
+曲库版本变化可能导致部分云档 `songId` 暂时无法匹配。页面应显示已匹配记录数量，并提示检查服务器区域或曲库版本；不能把未匹配记录默认为零分。没有记录时，课题页仍可使用无个人数据的通用规划。
 
-## IndexedDB
-保存 profile、chartRecords、scoreHistory、savedPlans、preferences、importMetadata。提供导出备份、删除单个数据源、清空全部本地数据的操作。
+如果未来 PhiHub 接口取消 CORS，先评估对方许可和认证方式，再考虑受控代理。代理不得成为开放转发器，也不得持久化 sessionToken。
