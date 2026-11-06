@@ -51,3 +51,4 @@
 @media(max-width:780px){.song-row{grid-template-columns:52px minmax(0,1fr) auto}.song-row-art{width:52px}}
 @media(max-width:480px){.song-row{grid-template-columns:46px minmax(0,1fr) auto}.song-row-art{width:46px}}
 .chart-table-row>.chart-charter{display:block;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:anywhere;line-height:1.12;text-align:left}
+.solution-rank{display:grid;justify-items:center;align-content:center;gap:2px;min-width:40px}.solution-rank img{width:30px;height:32px;object-fit:contain}.solution-rank small{color:#bfc4c5;font-size:9px;white-space:nowrap}

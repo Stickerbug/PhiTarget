@@ -14,8 +14,8 @@ type SortDirection = "asc" | "desc";
 const sortModes: SortMode[] = ["default", "title", "constant"];
 const resourceCdn = "https://cdn.jsdelivr.net/gh/7aGiven/Phigros_Resource";
 const assetUrl = (songId: string, branch: "illustration" | "illustrationLowRes" | "illustrationBlur") => `${resourceCdn}@${branch}/${encodeURIComponent(songId)}.png`;
-type ScoreRank = "F" | "C" | "B" | "A" | "S" | "V" | "phi";
-const rankAssets: Record<ScoreRank, string> = { F: "/assets/ranks/F.png", C: "/assets/ranks/C.png", B: "/assets/ranks/B.png", A: "/assets/ranks/A.png", S: "/assets/ranks/S.png", V: "/assets/ranks/V.png", phi: "/assets/ranks/phi.png" };
+type ScoreRank = "F" | "C" | "B" | "A" | "S" | "V" | "blueV" | "phi";
+const rankAssets: Record<ScoreRank, string> = { F: "/assets/ranks/F.png", C: "/assets/ranks/C.png", B: "/assets/ranks/B.png", A: "/assets/ranks/A.png", S: "/assets/ranks/S.png", V: "/assets/ranks/V.png", blueV: "/assets/ranks/V-blue.png", phi: "/assets/ranks/phi.png" };
 const chapterOrder = [
   "单曲精选集", "Chapter Legacy 过去的章节", "Chapter 5 霓虹灯牌", "Chapter 6 方舟蜃景", "Chapter 7 时钟链接", "Chapter 8 凌日潮汐", "Chapter 9 穹顶孤舟",
   "Side Story 1 忘忧宫", "Side Story 2 弭刻日", "Side Story 3 盗乐行", "Side Story 4 无相乡",
@@ -25,7 +25,8 @@ const chapterOrder = [
 const normalizeSearch = (value: string) => value.normalize("NFKD").toLowerCase().replace(/\p{M}/gu, "").replace(/[^\p{L}\p{N}]+/gu, "");
 const formatScore = (value: bigint | number) => typeof value === "bigint" ? value.toString() : number.format(value);
 const formatNote = (value: number | null) => value === null ? "—" : number.format(value);
-const rankForScore = (score: number): ScoreRank => score >= 1_000_000 ? "phi" : score >= 950_000 ? "V" : score >= 900_000 ? "S" : score >= 820_000 ? "A" : score >= 700_000 ? "B" : score >= 600_000 ? "C" : "F";
+const rankForScore = (score: number, fullCombo = false): ScoreRank => score >= 1_000_000 ? "phi" : fullCombo ? "blueV" : score >= 960_000 ? "V" : score >= 920_000 ? "S" : score >= 880_000 ? "A" : score >= 820_000 ? "B" : score >= 700_000 ? "C" : "F";
+const rankLabel: Record<ScoreRank, string> = { F: "F", C: "C", B: "B", A: "A", S: "S", V: "V", blueV: "蓝V", phi: "Phi" };
 const chapterOuterName = (chapter: string) => {
   if (chapter === "all") return "Phigros";
   if (chapter === "单曲精选集") return "Single";
@@ -116,7 +117,7 @@ export default function App() {
       }
       return sortDirection === "asc" ? result : -result;
     });
-    return rows.slice(0, 96);
+    return rows;
   }, [filtered, selectedDifficulty, songMeta, sortDirection, sortMode]);
   const selected = filtered.find((chart) => chart.chartId === selectedId) ?? songRows[0]?.[0] ?? charts[0];
   const selectedSongCharts = useMemo(() => selected ? charts.filter((chart) => chart.songId === selected.songId).sort((a, b) => difficultyOrder.indexOf(a.difficulty) - difficultyOrder.indexOf(b.difficulty)) : [], [charts, selected]);
@@ -130,6 +131,7 @@ export default function App() {
       return { solutions, error: "" };
     } catch (error) { return { solutions: [], error: error instanceof Error ? error.message : "Invalid input" }; }
   }, [effectiveCombo, goodCap, match, notes, scoreMode, target]);
+  const solutionRank = (solution: (typeof state.solutions)[number]) => rankForScore(Number(solution.result.display), "badMiss" in solution ? solution.badMiss === 0 && solution.maxCombo === notes : solution.maxCombo === notes);
   const reachableState = useMemo(() => {
     if (!dataset || !selected) return { analysis: null, error: "" };
     try {
@@ -144,6 +146,7 @@ export default function App() {
   const chapterArt = chapterArtworkFor(chapter, selectedBlur);
   const chapterOuterLabel = chapterOuterName(chapter);
   const chapterLabel = chapterDetailName(chapter);
+  const selectedChapterLabel = selected ? chapterDetailName(selected.chapter) : chapterLabel;
   const cycleSort = () => setSortMode((current) => sortModes[(sortModes.indexOf(current) + 1) % sortModes.length]);
   const toggleDirection = () => setSortDirection((current) => current === "asc" ? "desc" : "asc");
 
@@ -159,7 +162,6 @@ export default function App() {
           <div className="sort-panel"><div><small>歌曲列表</small><strong>{chapterLabel}</strong></div><div className="sort-control"><button className="sort-cycle" type="button" onClick={cycleSort}><span>排序</span><strong>{sortNames[sortMode]}</strong></button><button className="sort-direction" type="button" onClick={toggleDirection} aria-label={sortDirection === "asc" ? "升序" : "降序"}>{sortDirection === "asc" ? "↑" : "↓"}</button></div></div>
           <div className="browser-tools"><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索曲名 / 定数 / 别名" /></div>
           <div className="song-list">{songRows.map((row) => <SongRow key={row[0].songId} charts={row} selectedId={selected?.chartId ?? ""} onSelect={(chart) => { setSelectedId(chart.chartId); setSelectedDifficulty(chart.difficulty); }} />)}</div>
-          {filtered.length > 96 && <p className="list-limit">显示前 96 首，继续缩小章节或搜索范围。</p>}
         </aside>
         <section className="song-stage">
           {selected ? <>
@@ -171,7 +173,7 @@ export default function App() {
                   <div className="chart-table-head"><span>Dif</span><span>Charter</span><span>Tap</span><span>Drag</span><span>Hold</span><span>Flick</span><span>Total</span></div>
                   {selectedSongCharts.map((chart) => <button type="button" key={chart.chartId} className={`chart-table-row chart-row-${chart.difficulty}`} onClick={() => { setSelectedId(chart.chartId); setSelectedDifficulty(chart.difficulty); }}><span className={`chart-difficulty-cell difficulty-${chart.difficulty}`}><b>{difficultyName[chart.difficulty]}</b><small>{chart.constant?.toFixed(1) ?? "—"}</small></span><span className="chart-charter">{chart.charter || "—"}</span><span>{formatNote(chart.noteCounts.tap)}</span><span>{formatNote(chart.noteCounts.drag)}</span><span>{formatNote(chart.noteCounts.hold)}</span><span>{formatNote(chart.noteCounts.flick)}</span><strong>{formatNote(chart.noteCount)}</strong></button>)}
                 </div>
-                <div className="song-meta-grid"><div><b>BPM</b><span>{selected.bpm || "—"}</span></div><div><b>Length</b><span>{selected.duration || "—"}</span></div><div><b>Composer</b><span>{selected.composer || "—"}</span></div><div><b>Illustrator</b><span>{selected.illustrator || "—"}</span></div><div><b>Chapter</b><span>{chapterLabel}</span></div></div>
+                <div className="song-meta-grid"><div><b>BPM</b><span>{selected.bpm || "—"}</span></div><div><b>Length</b><span>{selected.duration || "—"}</span></div><div><b>Composer</b><span>{selected.composer || "—"}</span></div><div><b>Illustrator</b><span>{selected.illustrator || "—"}</span></div><div><b>Chapter</b><span>{selectedChapterLabel}</span></div></div>
               </div>
               <div className="art-frame"><img src={selectedArt} alt={`${selected.title} 曲绘`} loading="eager" decoding="async" fetchPriority="high" /></div>
             </div>
@@ -181,7 +183,7 @@ export default function App() {
         </section>
       </div>
     </section>
-    <section className="calculator-panel"><div className="calculator-heading"><h2>目标分数反推</h2><span>{number.format(songRows.length)} 首歌曲</span></div><div className="solver-controls"><label>计分约束<select value={scoreMode} onChange={(event) => setScoreMode(event.target.value as typeof scoreMode)}><option value="normal">普通模式 / 不限制 FC</option><option value="fc">FC / 无 Bad · Miss</option><option value="combo">指定 Max Combo / 合并 Bad + Miss</option></select></label><label>目标分数<input type="number" min="0" max="1000000" value={target} onChange={(event) => setTarget(Number(event.target.value))} /></label>{scoreMode === "combo" && <label>Max Combo<input type="number" min="0" max={notes} value={maxCombo} onChange={(event) => setMaxCombo(Number(event.target.value))} /></label>}<label>求解方式<select value={match} onChange={(event) => setMatch(event.target.value as typeof match)}><option value="nearest">最接近目标</option><option value="exact">精确命中</option><option value="atLeast">至少达到</option></select></label></div><p className="formula-line">N = {number.format(notes)} · Good ≤ {number.format(goodCap)} {goodCapKnown ? "（Tap + Hold，Flick/Drag 无 Good）" : "（音符类型统计缺失，未限制）"} · {scoreMode === "normal" ? "普通模式 · 不限制 FC · Bad + Miss 合并显示，Max Combo 取理论样本" : scoreMode === "fc" ? "FC · Score = 1,000,000 − 315,000 × Good / N" : `C = ${number.format(effectiveCombo)} · Bad + Miss 作为同一误差组计算`}</p>{state.error ? <p className="error">{state.error}</p> : <div className="solutions">{state.solutions.map((solution) => <div className="solution" key={`${solution.good}-${solution.maxCombo}-${solution.result.display}-${"badMiss" in solution ? solution.badMiss : 0}`}><div><strong>{formatScore(solution.result.display)}</strong><small>P {solution.perfect} · G {solution.good} · {"badMiss" in solution ? `B + M ${solution.badMiss}` : "B 0 · M 0"} · C {solution.maxCombo}</small></div><b className={solution.delta === 0 ? "exact" : "delta"}>{solution.delta > 0 ? "+" : ""}{formatScore(solution.delta)}</b></div>)}</div>}</section>
+    <section className="calculator-panel"><div className="calculator-heading"><h2>目标分数反推</h2><span>{number.format(songRows.length)} 首歌曲</span></div><div className="solver-controls"><label>计分约束<select value={scoreMode} onChange={(event) => setScoreMode(event.target.value as typeof scoreMode)}><option value="normal">普通模式 / 不限制 FC</option><option value="fc">FC / 无 Bad · Miss</option><option value="combo">指定 Max Combo / 合并 Bad + Miss</option></select></label><label>目标分数<input type="number" min="0" max="1000000" value={target} onChange={(event) => setTarget(Number(event.target.value))} /></label>{scoreMode === "combo" && <label>Max Combo<input type="number" min="0" max={notes} value={maxCombo} onChange={(event) => setMaxCombo(Number(event.target.value))} /></label>}<label>求解方式<select value={match} onChange={(event) => setMatch(event.target.value as typeof match)}><option value="nearest">最接近目标</option><option value="exact">精确命中</option><option value="atLeast">至少达到</option></select></label></div><p className="formula-line">N = {number.format(notes)} · {scoreMode === "normal" ? "普通模式 · 不限制 FC" : scoreMode === "fc" ? "FC 模式" : `固定 Max Combo = ${number.format(effectiveCombo)}`} · Bad + Miss 按同一分值误差组计算</p>{state.error ? <p className="error">{state.error}</p> : <div className="solutions">{state.solutions.map((solution) => { const rank = solutionRank(solution); return <div className="solution" key={`${solution.good}-${solution.maxCombo}-${solution.result.display}-${"badMiss" in solution ? solution.badMiss : 0}`}><div><strong>{formatScore(solution.result.display)}</strong><small>P {solution.perfect} · G {solution.good} · {"badMiss" in solution ? `B + M ${solution.badMiss}` : "B 0 · M 0"} · C {solution.maxCombo}</small></div><span className="solution-rank"><img src={rankAssets[rank]} alt={rankLabel[rank]} /><small>{rankLabel[rank]} · {"badMiss" in solution ? (solution.badMiss === 0 && solution.maxCombo === notes ? "FC" : "普通") : "FC"}</small></span><b className={solution.delta === 0 ? "exact" : "delta"}>{solution.delta > 0 ? "+" : ""}{formatScore(solution.delta)}</b></div>; })}</div>}</section>
     <section className="calculator-panel reachable-panel"><div className="calculator-heading"><h2>可达分数</h2><span>公式可达</span></div><div className="solver-controls reachable-controls"><label>计算模型<select value={reachabilityMode} onChange={(event) => setReachabilityMode(event.target.value as ReachabilityMode)}><option value="normal">普通模式 / 不限制 FC</option><option value="fc">FC</option><option value="fixedCombo">固定 Max Combo</option></select></label>{reachabilityMode === "fixedCombo" && <label>Max Combo<input type="number" min="0" max={notes} value={Math.min(reachabilityCombo, notes)} onChange={(event) => setReachabilityCombo(Number(event.target.value))} /></label>}<label>目标附近分数<input type="number" min="0" max="1000000" value={target} onChange={(event) => setTarget(Number(event.target.value))} /></label></div>{reachableState.error ? <p className="error">{reachableState.error}</p> : reachableState.analysis && <><div className="reachable-summary"><div><strong>{number.format(reachableState.analysis.total)}</strong><small>不同可达分数</small></div><div><strong>{number.format(reachableState.analysis.min)}</strong><small>最低</small></div><div><strong>{number.format(reachableState.analysis.max)}</strong><small>最高</small></div></div><div className="reachable-nearby"><small>目标 {number.format(target)} 附近</small><div>{reachableNearby.map((scoreValue) => <span key={scoreValue} className={scoreValue === target ? "exact" : ""}>{number.format(scoreValue)}</span>)}</div></div><div className="reachable-buckets"><small>分数分布（每 5,000 分）</small><div>{reachableState.analysis.buckets.map((bucket) => <span key={bucket.start}>{number.format(bucket.start)}–{number.format(bucket.end)} <b>{number.format(bucket.count)}</b></span>)}</div></div><p className="reachable-note">Good 上限为 {number.format(reachableState.analysis.goodCap)}（Tap + Hold）；Flick/Drag 没有 Good。结果还未验证错误位置、音符类型的其他判定限制或真实 Max Combo，不代表每个分数都能在该谱面实际打出。</p></>}</section>
   </main>;
 }
