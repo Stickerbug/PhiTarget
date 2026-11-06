@@ -68,5 +68,5 @@
 /* Keep the art upright while covering the transformed card bounds. */
 .chapter-card::before{inset:-18% -30%;transform:skewX(15deg) scale(1.25);filter:blur(4px) saturate(.66) brightness(.88)}
 .chapter-card span{left:78%}
-.chapter-card span{transform:skewX(15deg) rotate(-90deg)}
+.chapter-card span{transform:skewX(15deg) rotate(-75deg)}
 .chapter-card span i{transform:none}
