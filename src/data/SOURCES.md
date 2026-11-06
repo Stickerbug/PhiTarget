@@ -16,7 +16,7 @@ node scripts/import-public-chart-data.mjs
 
 ## 谱面结构摘要
 
-`chartConstraints.json` 由 `scripts/analyze-chart-constraints.mjs` 在构建前生成。脚本读取 [Phigros_Resource 的 chart 分支](https://github.com/7aGiven/Phigros_Resource/tree/chart) 的完整谱面 JSON，只保留每张谱面的音符计数、长条统计，以及“同时间 + 同 positionX”下同时出现 Tap/Hold 与 Drag/Flick 的候选组。当前摘要不包含原始谱面文件，也不模拟判定窗口、滑动路径、输入顺序或多指操作，因此页面只把它作为结构理论提示，不把候选组直接当成实际不可达结论。
+`chartConstraints.json` 由 `scripts/analyze-chart-constraints.mjs` 在构建前生成。脚本读取 [Phigros_Resource 的 chart 分支](https://github.com/7aGiven/Phigros_Resource/tree/chart) 的完整谱面 JSON，只保留每张谱面的音符计数、长条统计，以及“同时间 + 同 positionX”下同时出现 Tap/Hold 与 Drag/Flick 的同触点音符。当前摘要不包含原始谱面文件，因此本计算不保证每个分数在真实谱面中都能打出。
 
 完整分析约需下载 2.6 GiB 原始 JSON，原始缓存位于被忽略的 `.cache/`；生成的摘要约 1.4 MiB：
 
