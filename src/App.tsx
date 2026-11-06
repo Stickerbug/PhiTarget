@@ -24,6 +24,7 @@ const chapterOrder = [
 
 const normalizeSearch = (value: string) => value.normalize("NFKD").toLowerCase().replace(/\p{M}/gu, "").replace(/[^\p{L}\p{N}]+/gu, "");
 const formatScore = (value: bigint | number) => typeof value === "bigint" ? value.toString() : number.format(value);
+const formatNote = (value: number | null) => value === null ? "—" : number.format(value);
 const rankForScore = (score: number): ScoreRank => score >= 1_000_000 ? "phi" : score >= 950_000 ? "V" : score >= 900_000 ? "S" : score >= 820_000 ? "A" : score >= 700_000 ? "B" : score >= 600_000 ? "C" : "F";
 const chapterOuterName = (chapter: string) => {
   if (chapter === "all") return "Phigros";
@@ -156,7 +157,22 @@ export default function App() {
           {filtered.length > 96 && <p className="list-limit">显示前 96 首，继续缩小章节或搜索范围。</p>}
         </aside>
         <section className="song-stage">
-          {selected ? <><div className="song-heading"><div><small>{selected.composer || "Unknown composer"} ／ {selected.illustrator || "Illustrator unknown"}</small><h1>{selected.title}</h1></div><span className={`stage-difficulty difficulty-${selected.difficulty}`}>{difficultyName[selected.difficulty]}</span></div><div className="art-frame"><img src={selectedArt} alt={`${selected.title} 曲绘`} loading="eager" decoding="async" fetchPriority="high" /></div><div className="difficulty-switch">{selectedSongCharts.map((chart) => <button key={chart.chartId} className={chart.chartId === selected.chartId ? `active difficulty-${chart.difficulty}` : ""} onClick={() => setSelectedId(chart.chartId)}><b>{chart.constant?.toFixed(1) ?? "—"}</b><small>{difficultyName[chart.difficulty]}</small></button>)}</div><div className="score-strip"><span className="target-score">{number.format(target)}<small>目标分数</small></span><span><b>{number.format(selected.noteCount ?? 0)}</b><small>NOTES</small></span><span><b>{selected.constant?.toFixed(1) ?? "—"}</b><small>定数</small></span><span className="rank-mark"><img src={rankAssets[rankForScore(target)]} alt={rankForScore(target) === "phi" ? "Phi" : rankForScore(target)} /></span></div></> : <p className="empty-state">没有匹配的歌曲。</p>}
+          {selected ? <>
+            <div className="song-heading"><div><small>{selected.composer || "Unknown composer"} ／ {selected.illustrator || "Illustrator unknown"}</small><h1>{selected.title}</h1></div><span className={`stage-difficulty difficulty-${selected.difficulty}`}>{difficultyName[selected.difficulty]}</span></div>
+            <div className="song-detail-layout">
+              <div className="song-info-panel">
+                <div className="song-info-title"><strong>{selected.title}</strong><span>SONG'S_INFO</span></div>
+                <div className="chart-table">
+                  <div className="chart-table-head"><span>Dif</span><span>Charter</span><span>Tap</span><span>Drag</span><span>Hold</span><span>Flick</span><span>Total</span></div>
+                  {selectedSongCharts.map((chart) => <button type="button" key={chart.chartId} className={`chart-table-row chart-row-${chart.difficulty} ${chart.chartId === selected.chartId ? "selected" : ""}`} onClick={() => setSelectedId(chart.chartId)}><span className={`chart-difficulty-cell difficulty-${chart.difficulty}`}><b>{difficultyName[chart.difficulty]}</b><small>{chart.constant?.toFixed(1) ?? "—"}</small></span><span className="chart-charter">{chart.charter || "—"}</span><span>{formatNote(chart.noteCounts.tap)}</span><span>{formatNote(chart.noteCounts.drag)}</span><span>{formatNote(chart.noteCounts.hold)}</span><span>{formatNote(chart.noteCounts.flick)}</span><strong>{formatNote(chart.noteCount)}</strong></button>)}
+                </div>
+                <div className="song-meta-grid"><div><b>BPM</b><span>—</span></div><div><b>Composer</b><span>{selected.composer || "—"}</span></div><div><b>Illustrator</b><span>{selected.illustrator || "—"}</span></div><div><b>Chapter</b><span>{chapterLabel}</span></div></div>
+              </div>
+              <div className="art-frame"><img src={selectedArt} alt={`${selected.title} 曲绘`} loading="eager" decoding="async" fetchPriority="high" /></div>
+            </div>
+            <div className="difficulty-switch">{selectedSongCharts.map((chart) => <button key={chart.chartId} className={chart.chartId === selected.chartId ? `active difficulty-${chart.difficulty}` : ""} onClick={() => setSelectedId(chart.chartId)}><b>{chart.constant?.toFixed(1) ?? "—"}</b><small>{difficultyName[chart.difficulty]}</small></button>)}</div>
+            <div className="score-strip"><span className="target-score">{number.format(target)}<small>目标分数</small></span><span><b>{number.format(selected.noteCount ?? 0)}</b><small>NOTES</small></span><span><b>{selected.constant?.toFixed(1) ?? "—"}</b><small>定数</small></span><span className="rank-mark"><img src={rankAssets[rankForScore(target)]} alt={rankForScore(target) === "phi" ? "Phi" : rankForScore(target)} /></span></div>
+          </> : <p className="empty-state">没有匹配的歌曲。</p>}
         </section>
       </div>
     </section>
