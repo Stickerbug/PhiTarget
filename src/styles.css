@@ -52,3 +52,9 @@
 @media(max-width:480px){.song-row{grid-template-columns:46px minmax(0,1fr) auto}.song-row-art{width:46px}}
 .chart-table-row>.chart-charter{display:block;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:anywhere;line-height:1.12;text-align:left}
 .solution-rank{display:grid;justify-items:center;align-content:center;gap:2px;min-width:40px}.solution-rank img{width:30px;height:32px;object-fit:contain}.solution-rank small{color:#bfc4c5;font-size:9px;white-space:nowrap}
+/* Keep chapter artwork continuous through every slanted corner. */
+.chapter-strip{--chapter-height:min(72vw,72vh);gap:clamp(16px,5vmin,60px)}
+.chapter-card{background-image:var(--chapter-art);background-position:center;background-repeat:no-repeat;background-size:cover}
+.chapter-card::before{content:"";display:block;inset:-10%;transform:scale(1.1);filter:blur(5px) saturate(.66) brightness(.88)}
+.chapter-card:after{background:rgba(7,8,8,.34)}
+.chapter-card span{left:74%;bottom:2%;font-size:6.8vmin}
