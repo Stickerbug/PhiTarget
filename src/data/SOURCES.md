@@ -30,7 +30,7 @@ node scripts/import-public-chart-data.mjs
 
 - `Catrong/phi-plugin/resources/html/common/font/phi.ttf` 的字体元数据为 `Source Han Sans & Saira Hybrid`，并附带资源目录中的 Apache 2.0 许可文本；网页将其作为主字体使用。
 - `resources/html/otherimg/{F,C,B,A,S,V,FC,phi,NEW}.png` 是插件资源中的等级图，已放入 `public/assets/ranks/`，用于目标分数等级显示。该资源与插件仓库的游戏素材仍应按公开发布场景单独复核。
-- 蓝 V 图标来自公开 Phigros Web 仿制项目的 `V15V.png`，用于“任意非 Phi 分数只要全连即为蓝 V”的显示规则。
+- 蓝 V 图标使用 Phi-Plugin 资源目录的 `FC.png`（原 `V-blue.png` 文件误用了白 V 的 `V.png`），用于“任意非 Phi 分数只要全连即为蓝 V”的显示规则。
 - `phi.ttf` 本身不含 U+058E（`֎`，歌曲「百鬼֎夜行」中间的符号）字形；网页为这个字符提供 Noto Sans Armenian OFL fallback，保证它不会显示成方框。若取得官方 APK 的 TextMeshPro 字体资产，可再替换为官方字形。
 
 ## 排序和搜索

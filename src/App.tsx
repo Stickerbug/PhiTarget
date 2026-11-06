@@ -15,7 +15,7 @@ const sortModes: SortMode[] = ["default", "title", "constant"];
 const resourceCdn = "https://cdn.jsdelivr.net/gh/7aGiven/Phigros_Resource";
 const assetUrl = (songId: string, branch: "illustration" | "illustrationLowRes" | "illustrationBlur") => `${resourceCdn}@${branch}/${encodeURIComponent(songId)}.png`;
 type ScoreRank = "F" | "C" | "B" | "A" | "S" | "V" | "blueV" | "phi";
-const rankAssets: Record<ScoreRank, string> = { F: "/assets/ranks/F.png", C: "/assets/ranks/C.png", B: "/assets/ranks/B.png", A: "/assets/ranks/A.png", S: "/assets/ranks/S.png", V: "/assets/ranks/V.png", blueV: "/assets/ranks/V-blue.png", phi: "/assets/ranks/phi.png" };
+const rankAssets: Record<ScoreRank, string> = { F: "/assets/ranks/F.png", C: "/assets/ranks/C.png", B: "/assets/ranks/B.png", A: "/assets/ranks/A.png", S: "/assets/ranks/S.png", V: "/assets/ranks/V.png", blueV: "/assets/ranks/V-blue.png?v=2", phi: "/assets/ranks/phi.png" };
 const chapterOrder = [
   "单曲精选集", "Chapter Legacy 过去的章节", "Chapter 5 霓虹灯牌", "Chapter 6 方舟蜃景", "Chapter 7 时钟链接", "Chapter 8 凌日潮汐", "Chapter 9 穹顶孤舟",
   "Side Story 1 忘忧宫", "Side Story 2 弭刻日", "Side Story 3 盗乐行", "Side Story 4 无相乡",
