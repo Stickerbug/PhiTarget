@@ -62,3 +62,6 @@
 .song-row-levels{display:grid;grid-template-columns:repeat(4,35px);gap:4px;justify-content:end;align-items:center}
 @media(max-width:780px){.song-row-levels{grid-template-columns:repeat(4,30px);gap:2px}}
 @media(max-width:480px){.song-row-levels{grid-template-columns:repeat(4,28px);gap:2px}}
+.song-row-copy strong.long-title{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;line-height:1.12}
+.song-heading h1.long-title{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;line-height:1.04}
+.song-info-title strong.long-title{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;line-height:1.08}

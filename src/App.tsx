@@ -63,7 +63,7 @@ function SongRow({ charts, selectedId, onSelect }: { charts: ChartRecord[]; sele
   const ordered = [...charts].sort((a, b) => difficultyOrder.indexOf(a.difficulty) - difficultyOrder.indexOf(b.difficulty));
   return <button className={`song-row ${active ? "active" : ""}`} onClick={() => onSelect(charts.find((chart) => chart.chartId === selectedId) ?? first)}>
     <span className="song-row-art"><img src={assetUrl(first.songId, "illustrationLowRes")} alt="" loading="lazy" decoding="async" /></span>
-    <span className="song-row-copy"><strong>{first.title}</strong><small>{first.composer || "Unknown composer"}</small></span>
+    <span className="song-row-copy"><strong className={first.title.length >= 25 ? "long-title" : undefined}>{first.title}</strong><small>{first.composer || "Unknown composer"}</small></span>
     <span className="song-row-levels">{ordered.map((chart) => <span key={chart.chartId} style={{ gridColumn: difficultyOrder.indexOf(chart.difficulty) + 1 }} className={`song-level difficulty-${chart.difficulty} ${chart.chartId === selectedId ? "selected" : ""}`} onClick={(event) => { event.stopPropagation(); onSelect(chart); }}>{chart.constant?.toFixed(1) ?? "—"}</span>)}</span>
   </button>;
 }
@@ -166,10 +166,10 @@ export default function App() {
         </aside>
         <section className="song-stage">
           {selected ? <>
-            <div className="song-heading"><div><small>{selected.composer || "Unknown composer"} ／ {selected.illustrator || "Illustrator unknown"}</small><h1>{selected.title}</h1></div><span className={`stage-difficulty difficulty-${selected.difficulty}`}>{difficultyName[selected.difficulty]}</span></div>
+            <div className="song-heading"><div><small>{selected.composer || "Unknown composer"} ／ {selected.illustrator || "Illustrator unknown"}</small><h1 className={selected.title.length >= 25 ? "long-title" : undefined}>{selected.title}</h1></div><span className={`stage-difficulty difficulty-${selected.difficulty}`}>{difficultyName[selected.difficulty]}</span></div>
             <div className="song-detail-layout">
               <div className="song-info-panel">
-                <div className="song-info-title"><strong>{selected.title}</strong><span>SONG'S_INFO</span></div>
+                <div className="song-info-title"><strong className={selected.title.length >= 25 ? "long-title" : undefined}>{selected.title}</strong><span>SONG'S_INFO</span></div>
                 <div className="chart-table">
                   <div className="chart-table-head"><span>Dif</span><span>Charter</span><span>Tap</span><span>Drag</span><span>Hold</span><span>Flick</span><span>Total</span></div>
                   {selectedSongCharts.map((chart) => <button type="button" key={chart.chartId} className={`chart-table-row chart-row-${chart.difficulty}`} onClick={() => { setSelectedId(chart.chartId); setSelectedDifficulty(chart.difficulty); }}><span className={`chart-difficulty-cell difficulty-${chart.difficulty}`}><b>{difficultyName[chart.difficulty]}</b><small>{chart.constant?.toFixed(1) ?? "—"}</small></span><span className="chart-charter">{chart.charter || "—"}</span><span>{formatNote(chart.noteCounts.tap)}</span><span>{formatNote(chart.noteCounts.drag)}</span><span>{formatNote(chart.noteCounts.hold)}</span><span>{formatNote(chart.noteCounts.flick)}</span><strong>{formatNote(chart.noteCount)}</strong></button>)}
