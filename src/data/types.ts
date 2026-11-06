@@ -13,6 +13,8 @@ export type ChartRecord = {
   charter: string;
   noteCounts: NoteCounts;
   noteCount: number | null;
+  bpm: string | null;
+  duration: string | null;
   sourceVersion: string;
 };
 

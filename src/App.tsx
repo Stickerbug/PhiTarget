@@ -60,7 +60,7 @@ function SongRow({ charts, selectedId, onSelect }: { charts: ChartRecord[]; sele
   const active = charts.some((chart) => chart.chartId === selectedId);
   const ordered = [...charts].sort((a, b) => difficultyOrder.indexOf(a.difficulty) - difficultyOrder.indexOf(b.difficulty));
   return <button className={`song-row ${active ? "active" : ""}`} onClick={() => onSelect(charts.find((chart) => chart.chartId === selectedId) ?? first)}>
-    <img src={assetUrl(first.songId, "illustrationLowRes")} alt="" loading="lazy" decoding="async" />
+    <span className="song-row-art"><img src={assetUrl(first.songId, "illustrationLowRes")} alt="" loading="lazy" decoding="async" /></span>
     <span className="song-row-copy"><strong>{first.title}</strong><small>{first.composer || "Unknown composer"}</small></span>
     <span className="song-row-levels">{ordered.map((chart) => <span key={chart.chartId} className={`song-level difficulty-${chart.difficulty} ${chart.chartId === selectedId ? "selected" : ""}`} onClick={(event) => { event.stopPropagation(); onSelect(chart); }}>{chart.constant?.toFixed(1) ?? "—"}</span>)}</span>
   </button>;
@@ -77,6 +77,7 @@ export default function App() {
   const [sortMode, setSortMode] = useState<SortMode>("default");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [selectedId, setSelectedId] = useState("");
+  const [selectedDifficulty, setSelectedDifficulty] = useState("ez");
   const [target, setTarget] = useState(950000);
   const [match, setMatch] = useState<"exact" | "atLeast" | "nearest">("nearest");
   const [scoreMode, setScoreMode] = useState<"normal" | "fc" | "combo">("normal");
@@ -108,11 +109,15 @@ export default function App() {
       const bOrder = songMeta[b[0].songId]?.songOrder ?? Number.MAX_SAFE_INTEGER;
       if (sortMode === "default") result = (aOrder - bOrder) || a[0].title.localeCompare(b[0].title);
       else if (sortMode === "title") result = a[0].title.localeCompare(b[0].title) || (aOrder - bOrder);
-      else result = (Math.max(...a.map((chart) => chart.constant ?? -1)) - Math.max(...b.map((chart) => chart.constant ?? -1))) || a[0].title.localeCompare(b[0].title);
+      else {
+        const aConstant = a.find((chart) => chart.difficulty === selectedDifficulty)?.constant ?? 0;
+        const bConstant = b.find((chart) => chart.difficulty === selectedDifficulty)?.constant ?? 0;
+        result = (aConstant - bConstant) || a[0].title.localeCompare(b[0].title);
+      }
       return sortDirection === "asc" ? result : -result;
     });
     return rows.slice(0, 96);
-  }, [filtered, songMeta, sortDirection, sortMode]);
+  }, [filtered, selectedDifficulty, songMeta, sortDirection, sortMode]);
   const selected = filtered.find((chart) => chart.chartId === selectedId) ?? songRows[0]?.[0] ?? charts[0];
   const selectedSongCharts = useMemo(() => selected ? charts.filter((chart) => chart.songId === selected.songId).sort((a, b) => difficultyOrder.indexOf(a.difficulty) - difficultyOrder.indexOf(b.difficulty)) : [], [charts, selected]);
   const notes = selected?.noteCount ?? 1000;
@@ -153,7 +158,7 @@ export default function App() {
         <aside className="song-browser">
           <div className="sort-panel"><div><small>歌曲列表</small><strong>{chapterLabel}</strong></div><div className="sort-control"><button className="sort-cycle" type="button" onClick={cycleSort}><span>排序</span><strong>{sortNames[sortMode]}</strong></button><button className="sort-direction" type="button" onClick={toggleDirection} aria-label={sortDirection === "asc" ? "升序" : "降序"}>{sortDirection === "asc" ? "↑" : "↓"}</button></div></div>
           <div className="browser-tools"><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索曲名 / 定数 / 别名" /></div>
-          <div className="song-list">{songRows.map((row) => <SongRow key={row[0].songId} charts={row} selectedId={selected?.chartId ?? ""} onSelect={(chart) => setSelectedId(chart.chartId)} />)}</div>
+          <div className="song-list">{songRows.map((row) => <SongRow key={row[0].songId} charts={row} selectedId={selected?.chartId ?? ""} onSelect={(chart) => { setSelectedId(chart.chartId); setSelectedDifficulty(chart.difficulty); }} />)}</div>
           {filtered.length > 96 && <p className="list-limit">显示前 96 首，继续缩小章节或搜索范围。</p>}
         </aside>
         <section className="song-stage">
@@ -164,13 +169,13 @@ export default function App() {
                 <div className="song-info-title"><strong>{selected.title}</strong><span>SONG'S_INFO</span></div>
                 <div className="chart-table">
                   <div className="chart-table-head"><span>Dif</span><span>Charter</span><span>Tap</span><span>Drag</span><span>Hold</span><span>Flick</span><span>Total</span></div>
-                  {selectedSongCharts.map((chart) => <button type="button" key={chart.chartId} className={`chart-table-row chart-row-${chart.difficulty} ${chart.chartId === selected.chartId ? "selected" : ""}`} onClick={() => setSelectedId(chart.chartId)}><span className={`chart-difficulty-cell difficulty-${chart.difficulty}`}><b>{difficultyName[chart.difficulty]}</b><small>{chart.constant?.toFixed(1) ?? "—"}</small></span><span className="chart-charter">{chart.charter || "—"}</span><span>{formatNote(chart.noteCounts.tap)}</span><span>{formatNote(chart.noteCounts.drag)}</span><span>{formatNote(chart.noteCounts.hold)}</span><span>{formatNote(chart.noteCounts.flick)}</span><strong>{formatNote(chart.noteCount)}</strong></button>)}
+                  {selectedSongCharts.map((chart) => <button type="button" key={chart.chartId} className={`chart-table-row chart-row-${chart.difficulty}`} onClick={() => { setSelectedId(chart.chartId); setSelectedDifficulty(chart.difficulty); }}><span className={`chart-difficulty-cell difficulty-${chart.difficulty}`}><b>{difficultyName[chart.difficulty]}</b><small>{chart.constant?.toFixed(1) ?? "—"}</small></span><span className="chart-charter">{chart.charter || "—"}</span><span>{formatNote(chart.noteCounts.tap)}</span><span>{formatNote(chart.noteCounts.drag)}</span><span>{formatNote(chart.noteCounts.hold)}</span><span>{formatNote(chart.noteCounts.flick)}</span><strong>{formatNote(chart.noteCount)}</strong></button>)}
                 </div>
-                <div className="song-meta-grid"><div><b>BPM</b><span>—</span></div><div><b>Composer</b><span>{selected.composer || "—"}</span></div><div><b>Illustrator</b><span>{selected.illustrator || "—"}</span></div><div><b>Chapter</b><span>{chapterLabel}</span></div></div>
+                <div className="song-meta-grid"><div><b>BPM</b><span>{selected.bpm || "—"}</span></div><div><b>Length</b><span>{selected.duration || "—"}</span></div><div><b>Composer</b><span>{selected.composer || "—"}</span></div><div><b>Illustrator</b><span>{selected.illustrator || "—"}</span></div><div><b>Chapter</b><span>{chapterLabel}</span></div></div>
               </div>
               <div className="art-frame"><img src={selectedArt} alt={`${selected.title} 曲绘`} loading="eager" decoding="async" fetchPriority="high" /></div>
             </div>
-            <div className="difficulty-switch">{selectedSongCharts.map((chart) => <button key={chart.chartId} className={chart.chartId === selected.chartId ? `active difficulty-${chart.difficulty}` : ""} onClick={() => setSelectedId(chart.chartId)}><b>{chart.constant?.toFixed(1) ?? "—"}</b><small>{difficultyName[chart.difficulty]}</small></button>)}</div>
+            <div className="difficulty-switch">{selectedSongCharts.map((chart) => <button key={chart.chartId} className={chart.chartId === selected.chartId ? `active difficulty-${chart.difficulty}` : ""} onClick={() => { setSelectedId(chart.chartId); setSelectedDifficulty(chart.difficulty); }}><b>{chart.constant?.toFixed(1) ?? "—"}</b><small>{difficultyName[chart.difficulty]}</small></button>)}</div>
             <div className="score-strip"><span className="target-score">{number.format(target)}<small>目标分数</small></span><span><b>{number.format(selected.noteCount ?? 0)}</b><small>NOTES</small></span><span><b>{selected.constant?.toFixed(1) ?? "—"}</b><small>定数</small></span><span className="rank-mark"><img src={rankAssets[rankForScore(target)]} alt={rankForScore(target) === "phi" ? "Phi" : rankForScore(target)} /></span></div>
           </> : <p className="empty-state">没有匹配的歌曲。</p>}
         </section>

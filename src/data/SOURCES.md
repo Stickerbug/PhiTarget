@@ -3,6 +3,7 @@
 当前 `charts.json` 是由公开数据源生成的静态快照，方便纯静态站点离线筛选。
 
 - `Catrong/phi-plugin` 的 `resources/info/info.csv` 提供曲名、曲师、曲绘画师、定数和各难度谱师；`resources/info/notesInfo.json` 提供 Tap/Hold/Flick/Drag 计数。该仓库采用 GPL-3.0，快照保留来源说明；PhiTarget 没有复制其代码、曲绘或字体。
+- `Catrong/phi-plugin` 的 `resources/info/infolist.json` 提供歌曲 BPM 和时长，页面将这两项并入歌曲详情；缺失值显示为 `—`。
 - Kyou (`https://kyou.net.cn`) 的公开数据快照提供曲包/章节映射。其再分发条款仍需在正式公开发布前确认，因此生成文件保留 `source terms pending review` 标记。
 
 重新生成快照：

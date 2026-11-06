@@ -28,6 +28,7 @@ const response = await fetch(`${phi}/info.csv`);
 if (!response.ok) throw new Error(`Unable to fetch info.csv: ${response.status}`);
 const infoRows = parseTsv(await response.text());
 const notesInfo = await getJson(`${phi}/notesInfo.json`);
+const infoList = await getJson(`${phi}/infolist.json`);
 const latest = await getJson(`${kyouBase}kyou/latest.json`);
 const manifest = await getJson(`${kyouBase}${latest.manifestPath}`);
 const songsFile = manifest.files.find((file) => file.name === "songs.json");
@@ -80,6 +81,8 @@ for (const [rowIndex, row] of infoRows.entries()) {
       charter: row[`${difficulty}C`] ?? "",
       noteCounts,
       noteCount,
+      bpm: infoList[row.id]?.bpm ? String(infoList[row.id].bpm) : null,
+      duration: infoList[row.id]?.length ? String(infoList[row.id].length) : null,
       sourceVersion: latest.resourceVersion,
     });
   }

@@ -38,3 +38,16 @@
 @media(max-width:780px){.song-detail-layout{grid-template-columns:1fr;gap:12px}.song-detail-layout .art-frame{order:-1}.chart-table-head,.chart-table-row{grid-template-columns:47px minmax(75px,1.2fr) repeat(4,minmax(27px,.55fr)) 45px;font-size:10px}.chart-table-row strong{font-size:14px}.song-info-title strong{font-size:19px}}
 @media(max-width:480px){.song-meta-grid{grid-template-columns:1fr}.chart-table-head,.chart-table-row{gap:2px;padding-inline:4px}.chart-difficulty-cell{margin-left:-4px}.chart-table-head{font-size:8px}.chart-table-row{font-size:9px}}
 .chapter-card.active::before{filter:blur(2px) saturate(.76) brightness(.94)}
+
+/* The chapter artwork stays upright inside the slanted container and is softened further. */
+.chapter-card::before{inset:-14% -20%;transform:skewX(15deg) scale(1.18);filter:blur(3px) saturate(.68) brightness(.9)}
+
+/* Thumbnails use the same 16:9 skewed art treatment as the large illustration. */
+.song-row{grid-template-columns:58px minmax(0,1fr) auto}
+.song-row-art{display:block;width:58px;aspect-ratio:16/9;overflow:hidden;transform:skewX(-7deg);background:#090b0d}
+.song-row-art img{display:block;width:100%;height:100%;object-fit:cover;transform:skewX(7deg) scale(1.1);filter:none}
+.chart-table-row{height:auto;min-height:54px;padding-block:5px}
+.chart-table-row>.chart-charter{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;line-height:1.12;text-align:left}
+@media(max-width:780px){.song-row{grid-template-columns:52px minmax(0,1fr) auto}.song-row-art{width:52px}}
+@media(max-width:480px){.song-row{grid-template-columns:46px minmax(0,1fr) auto}.song-row-art{width:46px}}
+.chart-table-row>.chart-charter{display:block;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:anywhere;line-height:1.12;text-align:left}
