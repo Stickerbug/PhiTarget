@@ -69,7 +69,8 @@ export function parsePhigrosCloudSave(value: unknown, charts: ChartRecord[], fet
       const record = rawRecord as CloudRecord;
       const chart = songIds.map((songId) => chartBySongDifficulty.get(`${songId}:${difficulties[index]}`)).find((item): item is ChartRecord => Boolean(item));
       const score = asNumber(record.score);
-      if (!chart || score === null || score < 0 || score > 1_000_000) continue;
+      // A zero score is the default empty slot in a cloud save, not a played record.
+      if (!chart || score === null || score <= 0 || score > 1_000_000) continue;
       const mapped: PhigrosCloudRecord = {
         id: `${chart.chartId}:${fetchedAt}`,
         chartId: chart.chartId,

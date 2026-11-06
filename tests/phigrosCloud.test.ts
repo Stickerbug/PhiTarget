@@ -15,4 +15,10 @@ describe("TapTap cloud save mapping", () => {
     expect(result.records[0]).toMatchObject({ chartId: "Demo.Author::ez", songId: "Demo.Author", score: 1_000_000, fc: true, source: "taptap" });
     expect(result.records[1]).toMatchObject({ chartId: "Demo.Author::in", score: 987_654, accuracy: 98.76 });
   });
+
+  it("does not treat empty zero-score slots as played records", () => {
+    const result = parsePhigrosCloudSave({ saveInfo: { PlayerId: "TestPlayer" }, gameRecord: { "Demo.Author.0": [{ score: 0, acc: 0, fc: false }, null, null] } }, charts, "2026-11-06T00:00:00Z");
+    expect(result.records).toHaveLength(0);
+    expect(result.profile.playerId).toBe("TestPlayer");
+  });
 });

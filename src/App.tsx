@@ -5,6 +5,7 @@ import { analyzeReachableScores, nearestReachableScores, type ReachabilityMode }
 import type { ChartConstraintProfile, ChartDataset, ChartRecord } from "./data/types";
 import { chapterArtworkFor } from "./data/chapterArtwork";
 import ChallengePlanner from "./components/ChallengePlanner";
+import ChallengeScoreReverse from "./components/ChallengeScoreReverse";
 import PlayerProfile from "./components/PlayerProfile";
 import type { PhigrosCloudData, PhigrosCloudRecord } from "./core/phigrosCloud";
 
@@ -14,7 +15,7 @@ const difficultyName: Record<string, string> = { ez: "EZ", hd: "HD", in: "IN", a
 const sortNames = { default: "默认", title: "曲名", constant: "定数" } as const;
 type SortMode = keyof typeof sortNames;
 type SortDirection = "asc" | "desc";
-type AppView = "library" | "challenge" | "profile";
+type AppView = "library" | "challengeScore" | "challengePlanner" | "profile";
 const sortModes: SortMode[] = ["default", "title", "constant"];
 const resourceCdn = "https://cdn.jsdelivr.net/gh/7aGiven/Phigros_Resource";
 const assetUrl = (songId: string, branch: "illustration" | "illustrationLowRes" | "illustrationBlur") => `${resourceCdn}@${branch}/${encodeURIComponent(songId)}.png`;
@@ -165,8 +166,8 @@ export default function App() {
   if (!dataset) return <main className="loading-screen"><span className="loading-mark">Φ</span><p>正在读取曲库索引…</p></main>;
 
   return <main className="app-shell">
-    <nav className="app-nav" aria-label="PhiTarget 页面"><button type="button" className={view === "library" ? "active" : ""} onClick={() => setView("library")}><span>曲库</span><small>目标分数</small></button><button type="button" className={view === "challenge" ? "active" : ""} onClick={() => setView("challenge")}><span>课题模式</span><small>三曲规划</small></button><button type="button" className={view === "profile" ? "active" : ""} onClick={() => setView("profile")}><span>玩家数据</span><small>TapTap 云档</small></button></nav>
-    {view === "challenge" ? <ChallengePlanner charts={charts} playerRecords={playerRecords} /> : view === "profile" ? <PlayerProfile charts={charts} records={playerRecords} profile={playerProfile} fetchedAt={playerFetchedAt} onLoaded={(data) => { setPlayerRecords(data.records); setPlayerProfile(data.profile); setPlayerFetchedAt(data.fetchedAt); }} /> : <>
+    <nav className="app-nav" aria-label="PhiTarget 页面"><button type="button" className={view === "library" ? "active" : ""} onClick={() => setView("library")}><span>曲库</span><small>目标分数</small></button><button type="button" className={view === "challengeScore" ? "active" : ""} onClick={() => setView("challengeScore")}><span>课题分反推</span><small>单曲目标</small></button><button type="button" className={view === "challengePlanner" ? "active" : ""} onClick={() => setView("challengePlanner")}><span>课题规划</span><small>三曲路线</small></button><button type="button" className={view === "profile" ? "active" : ""} onClick={() => setView("profile")}><span>玩家数据</span><small>TapTap 云档</small></button></nav>
+    {view === "challengeScore" ? <ChallengeScoreReverse charts={charts} /> : view === "challengePlanner" ? <ChallengePlanner charts={charts} playerRecords={playerRecords} playerRks={playerProfile?.rks ?? null} /> : view === "profile" ? <PlayerProfile charts={charts} records={playerRecords} profile={playerProfile} fetchedAt={playerFetchedAt} onLoaded={(data) => { setPlayerRecords(data.records); setPlayerProfile(data.profile); setPlayerFetchedAt(data.fetchedAt); }} /> : <>
     <section className="game-screen" style={chapterArt ? { "--selected-art": `url(${chapterArt})` } as CSSProperties : undefined}>
       <div className="network-lines" />
       <header className="game-header"><div className="game-header-title"><small><ChapterText value={chapterOuterLabel} /></small><strong><ChapterText value={chapterLabel} /></strong></div><div className="player-chip"><span className="player-level">40</span></div></header>
