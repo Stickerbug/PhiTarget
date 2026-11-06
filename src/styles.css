@@ -58,3 +58,7 @@
 .chapter-card::before{content:"";display:block;inset:-10%;transform:scale(1.1);filter:blur(5px) saturate(.66) brightness(.88)}
 .chapter-card:after{background:rgba(7,8,8,.34)}
 .chapter-card span{left:74%;bottom:2%;font-size:6.8vmin}
+.chapter-card span sup,.game-header sup,.sort-panel sup,.song-meta-grid sup{font-size:.62em;line-height:0;vertical-align:super;font-weight:inherit;font-style:normal}
+.song-row-levels{display:grid;grid-template-columns:repeat(4,35px);gap:4px;justify-content:end;align-items:center}
+@media(max-width:780px){.song-row-levels{grid-template-columns:repeat(4,30px);gap:2px}}
+@media(max-width:480px){.song-row-levels{grid-template-columns:repeat(4,28px);gap:2px}}

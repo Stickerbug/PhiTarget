@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { Fragment, useDeferredValue, useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import { solveFcTarget, solveNormalTarget, solveNormalUnrestrictedTarget } from "./core/solver";
 import { analyzeReachableScores, nearestReachableScores, type ReachabilityMode } from "./core/reachable";
@@ -27,6 +27,7 @@ const formatScore = (value: bigint | number) => typeof value === "bigint" ? valu
 const formatNote = (value: number | null) => value === null ? "—" : number.format(value);
 const rankForScore = (score: number, fullCombo = false): ScoreRank => score >= 1_000_000 ? "phi" : fullCombo ? "blueV" : score >= 960_000 ? "V" : score >= 920_000 ? "S" : score >= 880_000 ? "A" : score >= 820_000 ? "B" : score >= 700_000 ? "C" : "F";
 const rankLabel: Record<ScoreRank, string> = { F: "F", C: "C", B: "B", A: "A", S: "S", V: "V", blueV: "蓝V", phi: "Phi" };
+const ChapterText = ({ value }: { value: string }) => <>{value.split("³").map((part, index, parts) => <Fragment key={`${part}-${index}`}>{part}{index < parts.length - 1 && <sup>3</sup>}</Fragment>)}</>;
 const chapterOuterName = (chapter: string) => {
   if (chapter === "all") return "Phigros";
   if (chapter === "单曲精选集") return "Single";
@@ -63,12 +64,12 @@ function SongRow({ charts, selectedId, onSelect }: { charts: ChartRecord[]; sele
   return <button className={`song-row ${active ? "active" : ""}`} onClick={() => onSelect(charts.find((chart) => chart.chartId === selectedId) ?? first)}>
     <span className="song-row-art"><img src={assetUrl(first.songId, "illustrationLowRes")} alt="" loading="lazy" decoding="async" /></span>
     <span className="song-row-copy"><strong>{first.title}</strong><small>{first.composer || "Unknown composer"}</small></span>
-    <span className="song-row-levels">{ordered.map((chart) => <span key={chart.chartId} className={`song-level difficulty-${chart.difficulty} ${chart.chartId === selectedId ? "selected" : ""}`} onClick={(event) => { event.stopPropagation(); onSelect(chart); }}>{chart.constant?.toFixed(1) ?? "—"}</span>)}</span>
+    <span className="song-row-levels">{ordered.map((chart) => <span key={chart.chartId} style={{ gridColumn: difficultyOrder.indexOf(chart.difficulty) + 1 }} className={`song-level difficulty-${chart.difficulty} ${chart.chartId === selectedId ? "selected" : ""}`} onClick={(event) => { event.stopPropagation(); onSelect(chart); }}>{chart.constant?.toFixed(1) ?? "—"}</span>)}</span>
   </button>;
 }
 
 function ChapterCard({ label, art, active, onSelect }: { label: string; art: string; active: boolean; onSelect: () => void }) {
-  return <button className={`chapter-card ${active ? "active" : ""}`} style={{ "--chapter-art": `url("${art}")` } as CSSProperties} aria-pressed={active} aria-label={`选择${label}`} onClick={onSelect}><span><i>{label}</i></span></button>;
+  return <button className={`chapter-card ${active ? "active" : ""}`} style={{ "--chapter-art": `url("${art}")` } as CSSProperties} aria-pressed={active} aria-label={`选择${label}`} onClick={onSelect}><span><i><ChapterText value={label} /></i></span></button>;
 }
 
 export default function App() {
@@ -155,11 +156,11 @@ export default function App() {
   return <main className="app-shell">
     <section className="game-screen" style={chapterArt ? { "--selected-art": `url(${chapterArt})` } as CSSProperties : undefined}>
       <div className="network-lines" />
-      <header className="game-header"><div className="game-header-title"><small>{chapterOuterLabel}</small><strong>{chapterLabel}</strong></div><div className="player-chip"><span className="player-level">40</span></div></header>
+      <header className="game-header"><div className="game-header-title"><small><ChapterText value={chapterOuterLabel} /></small><strong><ChapterText value={chapterLabel} /></strong></div><div className="player-chip"><span className="player-level">40</span></div></header>
       <div className="chapter-strip"><ChapterCard label="Phigros" art={chapterArtworkFor("all", chapterCards[0]?.chart ? assetUrl(chapterCards[0].chart.songId, "illustrationBlur") : selectedBlur)} active={chapter === "all"} onSelect={() => setChapter("all")} />{chapterCards.map(({ name, chart }) => <ChapterCard key={name} label={chapterOuterName(name)} art={chapterArtworkFor(name, assetUrl(chart.songId, "illustrationBlur"))} active={chapter === name} onSelect={() => setChapter(name)} />)}</div>
       <div className="game-content">
         <aside className="song-browser">
-          <div className="sort-panel"><div><small>歌曲列表</small><strong>{chapterLabel}</strong></div><div className="sort-control"><button className="sort-cycle" type="button" onClick={cycleSort}><span>排序</span><strong>{sortNames[sortMode]}</strong></button><button className="sort-direction" type="button" onClick={toggleDirection} aria-label={sortDirection === "asc" ? "升序" : "降序"}>{sortDirection === "asc" ? "↑" : "↓"}</button></div></div>
+          <div className="sort-panel"><div><small>歌曲列表</small><strong><ChapterText value={chapterLabel} /></strong></div><div className="sort-control"><button className="sort-cycle" type="button" onClick={cycleSort}><span>排序</span><strong>{sortNames[sortMode]}</strong></button><button className="sort-direction" type="button" onClick={toggleDirection} aria-label={sortDirection === "asc" ? "升序" : "降序"}>{sortDirection === "asc" ? "↑" : "↓"}</button></div></div>
           <div className="browser-tools"><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索曲名 / 定数 / 别名" /></div>
           <div className="song-list">{songRows.map((row) => <SongRow key={row[0].songId} charts={row} selectedId={selected?.chartId ?? ""} onSelect={(chart) => { setSelectedId(chart.chartId); setSelectedDifficulty(chart.difficulty); }} />)}</div>
         </aside>
@@ -173,7 +174,7 @@ export default function App() {
                   <div className="chart-table-head"><span>Dif</span><span>Charter</span><span>Tap</span><span>Drag</span><span>Hold</span><span>Flick</span><span>Total</span></div>
                   {selectedSongCharts.map((chart) => <button type="button" key={chart.chartId} className={`chart-table-row chart-row-${chart.difficulty}`} onClick={() => { setSelectedId(chart.chartId); setSelectedDifficulty(chart.difficulty); }}><span className={`chart-difficulty-cell difficulty-${chart.difficulty}`}><b>{difficultyName[chart.difficulty]}</b><small>{chart.constant?.toFixed(1) ?? "—"}</small></span><span className="chart-charter">{chart.charter || "—"}</span><span>{formatNote(chart.noteCounts.tap)}</span><span>{formatNote(chart.noteCounts.drag)}</span><span>{formatNote(chart.noteCounts.hold)}</span><span>{formatNote(chart.noteCounts.flick)}</span><strong>{formatNote(chart.noteCount)}</strong></button>)}
                 </div>
-                <div className="song-meta-grid"><div><b>BPM</b><span>{selected.bpm || "—"}</span></div><div><b>Length</b><span>{selected.duration || "—"}</span></div><div><b>Composer</b><span>{selected.composer || "—"}</span></div><div><b>Illustrator</b><span>{selected.illustrator || "—"}</span></div><div><b>Chapter</b><span>{selectedChapterLabel}</span></div></div>
+                <div className="song-meta-grid"><div><b>BPM</b><span>{selected.bpm || "—"}</span></div><div><b>Length</b><span>{selected.duration || "—"}</span></div><div><b>Composer</b><span>{selected.composer || "—"}</span></div><div><b>Illustrator</b><span>{selected.illustrator || "—"}</span></div><div><b>Chapter</b><span><ChapterText value={selectedChapterLabel} /></span></div></div>
               </div>
               <div className="art-frame"><img src={selectedArt} alt={`${selected.title} 曲绘`} loading="eager" decoding="async" fetchPriority="high" /></div>
             </div>
