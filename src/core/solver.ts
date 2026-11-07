@@ -1,5 +1,10 @@
 import { score, type RoundingMode, type ScoreResult } from "./scoring";
 
+const comboBounds = (notes: number, badMiss: number): [number, number] => {
+  const successful = notes - badMiss;
+  return [Math.ceil(successful / (badMiss + 1)), successful];
+};
+
 export type TargetMatch = "exact" | "atLeast" | "nearest";
 
 export type FcSolution = {
@@ -65,8 +70,9 @@ export function solveNormalTarget(notes: number, maxCombo: number, target: numbe
   const base = 900000 * notes + 100000 * maxCombo - target * notes;
   for (let badMiss = 0; badMiss <= notes; badMiss += 1) {
     const idealGood = Math.round((base - 900000 * badMiss) / 315000);
+    const [minimumCombo, maximumCombo] = comboBounds(notes, badMiss);
     for (const good of [idealGood - 1, idealGood, idealGood + 1]) {
-      if (good < 0 || good > goodCap || good + badMiss > notes || maxCombo > notes - badMiss) continue;
+      if (good < 0 || good > goodCap || good + badMiss > notes || maxCombo < minimumCombo || maxCombo > maximumCombo) continue;
       candidates.push(candidate(good, badMiss));
     }
   }
@@ -80,8 +86,8 @@ export function solveNormalTarget(notes: number, maxCombo: number, target: numbe
  * Solve a normal-mode target without forcing FC or one fixed Max Combo.
  * This is a fast theoretical search: it samples the combo range evenly and
  * solves the affine Good value for every grouped Bad+Miss count. Bad and Miss
- * break combo, so C cannot exceed the number of Perfect + Good notes. Exact
- * sequence validation still needs a full chart event model.
+ * break combo, so C must stay within the theoretical contiguous-success range.
+ * Exact sequence validation still needs a full chart event model.
  */
 export function solveNormalUnrestrictedTarget(notes: number, target: number, match: TargetMatch, rounding: RoundingMode = "nearest", goodCap = notes): NormalSolution[] {
   if (!Number.isInteger(notes) || notes <= 0) throw new Error("Notes must be a positive integer");
@@ -98,11 +104,13 @@ export function solveNormalUnrestrictedTarget(notes: number, target: number, mat
   for (let combo = 0; combo <= notes; combo += step) combos.add(combo);
   combos.add(notes);
   for (let badMiss = 0; badMiss <= notes; badMiss += 1) {
+    const [minimumCombo, maximumCombo] = comboBounds(notes, badMiss);
+    combos.add(minimumCombo);
     for (const maxCombo of combos) {
       const base = 900000 * notes + 100000 * maxCombo - target * notes;
       const idealGood = Math.round((base - 900000 * badMiss) / 315000);
       for (const good of [idealGood - 1, idealGood, idealGood + 1]) {
-        if (good < 0 || good > goodCap || good + badMiss > notes || maxCombo > notes - badMiss) continue;
+        if (good < 0 || good > goodCap || good + badMiss > notes || maxCombo < minimumCombo || maxCombo > maximumCombo) continue;
         candidates.push(candidate(good, badMiss, maxCombo));
       }
     }

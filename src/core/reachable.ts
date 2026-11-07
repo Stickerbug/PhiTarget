@@ -46,19 +46,22 @@ const mergeIntervals = (values: Array<Array<[number, number]>>): [number, number
 });
 
 /**
- * Build the exact theoretical normal-mode K set with 0 <= C <= P + G and no
- * FC restriction. Bad and Miss break combo; B and M are grouped because they
- * have the same score weight.
+ * Build the exact theoretical normal-mode K set with the contiguous-success
+ * bounds implied by the grouped Bad + Miss count and no FC restriction. B and
+ * M are grouped because they have the same score weight.
  */
 const normalKIntervals = (notes: number, goodCap: number): [number, number][][] => {
   const quotientByResidue = Array.from({ length: 20 }, () => [] as Array<[number, number]>);
   for (let badMiss = 0; badMiss <= notes; badMiss += 1) {
+    const successful = notes - badMiss;
+    const minimumCombo = Math.ceil(successful / (badMiss + 1));
     for (let good = 0; good <= Math.min(goodCap, notes - badMiss); good += 1) {
       const base = 63 * good + 180 * badMiss;
       const residue = ((base % 20) + 20) % 20;
       const minK = base - 20 * (notes - badMiss);
+      const maxK = base - 20 * minimumCombo;
       const minQ = Math.ceil((minK - residue) / 20);
-      const maxQ = Math.floor((base - residue) / 20);
+      const maxQ = Math.floor((maxK - residue) / 20);
       if (minQ <= maxQ) quotientByResidue[residue].push([minQ, maxQ]);
     }
   }
@@ -95,8 +98,10 @@ const scoresFromCounts = (notes: number, maxCombo: number | null, goodCap: numbe
   const scores = new Set<number>();
   if (maxCombo === null) return scoresFromNormalIntervals(notes, normalKIntervals(notes, goodCap));
   for (let badMiss = 0; badMiss <= notes; badMiss += 1) {
+    const successful = notes - badMiss;
+    const minimumCombo = Math.ceil(successful / (badMiss + 1));
     for (let good = 0; good <= Math.min(goodCap, notes - badMiss); good += 1) {
-      if (maxCombo > notes - badMiss) continue;
+      if (maxCombo < minimumCombo || maxCombo > successful) continue;
       scores.add(scoreFromCounts(notes, good, badMiss, maxCombo));
     }
   }

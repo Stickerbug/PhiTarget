@@ -24,7 +24,7 @@
 验收：
 - 边界计数校验正确；
 - P+G+B+M 必须等于 N；
-- C 不得大于 P+G（Bad/Miss 会打断 Combo）；
+- `ceil((P+G)/(B+M+1)) ≤ C ≤ P+G`（Bad/Miss 会打断 Combo）；
 - FC 时 C=N；
 - 公式与真实结算样本对齐，未对齐的取整规则标为待确认。
 

@@ -40,7 +40,7 @@ npm run build
 ## 关键边界
 1. 普通模式已知判定数量和 Max Combo 时，计算分数不需要完整谱面 JSON。
 2. 普通模式仅凭 P/G/B/M 总数不能唯一确定 Max Combo；验证具体谱面顺序下的可达性，需要额外模型或完整谱面事件数据。
-3. Bad/Miss 会打断 Combo，因此 Max Combo 不会超过 Perfect + Good；这仍不能仅凭总数恢复实际最长连续段。
+3. Bad/Miss 会打断 Combo；给定 P/G/B/M 时，理论 Max Combo 范围为 `ceil((P+G)/(B+M+1))` 到 `P+G`。全 Perfect/Good 时必须是 FC，全 Bad/Miss 时必须是 0；这仍不能仅凭总数恢复实际断连位置。
 4. 课题模式不使用连击分。不同音符类型可获得的判定不同，不能把所有 note 都假设为可出 Good/Bad。
 5. 必须区分公式可达、音符类型约束可达、完整谱面顺序验证。
 6. 取整、铭牌阈值、曲库版本必须可配置，并用真实结算截图校准。

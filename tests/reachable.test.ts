@@ -6,7 +6,10 @@ function bruteNormal(notes: number, maxCombo: number | null, goodCap = notes) {
   for (let badMiss = 0; badMiss <= notes; badMiss += 1) {
     for (let good = 0; good <= Math.min(goodCap, notes - badMiss); good += 1) {
       const comboLimit = notes - badMiss;
-      const combos = maxCombo === null ? Array.from({ length: comboLimit + 1 }, (_, value) => value) : maxCombo <= comboLimit ? [maxCombo] : [];
+      const comboMinimum = Math.ceil(comboLimit / (badMiss + 1));
+      const combos = maxCombo === null
+        ? Array.from({ length: comboLimit - comboMinimum + 1 }, (_, value) => value + comboMinimum)
+        : maxCombo >= comboMinimum && maxCombo <= comboLimit ? [maxCombo] : [];
       for (const combo of combos) {
         const numerator = 900000 * (notes - good - badMiss) + 585000 * good + 100000 * combo;
         scores.add(Math.floor((2 * numerator + notes) / (2 * notes)));
@@ -46,7 +49,7 @@ describe("reachable score analysis", () => {
 
   it("produces a bounded normal-mode result for a typical chart", () => {
     const actual = analyzeReachableScores(1000, "normal");
-    expect(actual.total).toBe(198190);
+    expect(actual.total).toBe(197946);
     expect(actual.max).toBe(1000000);
   });
 });

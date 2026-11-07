@@ -23,6 +23,7 @@ describe("scoring core", () => {
   it("rejects inconsistent judgement counts", () => {
     expect(() => validateScoreInput({ notes: 10, perfect: 9, good: 0, bad: 0, miss: 0, maxCombo: 10 })).toThrow(/equal notes/);
     expect(() => validateScoreInput({ notes: 4, perfect: 0, good: 0, bad: 4, miss: 0, maxCombo: 4 })).toThrow(/Perfect \+ Good/);
+    expect(() => validateScoreInput({ notes: 4, perfect: 4, good: 0, bad: 0, miss: 0, maxCombo: 0 })).toThrow(/theoretical minimum/);
   });
 
   it("solves an FC target", () => {
@@ -59,5 +60,7 @@ describe("scoring core", () => {
   it("does not assign combo to an all-Bad/Miss result", () => {
     const result = solveNormalUnrestrictedTarget(4, 100000, "nearest");
     expect(result.some((item) => item.badMiss === 4 && item.maxCombo > 0)).toBe(false);
+    const perfectWithoutCombo = solveNormalUnrestrictedTarget(4, 900000, "exact");
+    expect(perfectWithoutCombo.some((item) => item.perfect === 4 && item.maxCombo === 0)).toBe(false);
   });
 });

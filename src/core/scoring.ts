@@ -33,8 +33,8 @@ export function rational(numerator: bigint, denominator: bigint): Rational {
   return { numerator: numerator / divisor, denominator: denominator / divisor };
 }
 
-export function validateScoreInput(input: ScoreInput): void {
-  const values = [input.notes, input.perfect, input.good, input.bad, input.miss, input.maxCombo];
+export function validateJudgementCounts(input: JudgementCounts & { notes: number }): void {
+  const values = [input.notes, input.perfect, input.good, input.bad, input.miss];
   if (values.some((value) => !Number.isInteger(value) || value < 0)) {
     throw new Error("Score counts must be non-negative integers");
   }
@@ -42,8 +42,19 @@ export function validateScoreInput(input: ScoreInput): void {
   if (input.perfect + input.good + input.bad + input.miss !== input.notes) {
     throw new Error("Perfect + Good + Bad + Miss must equal notes");
   }
+}
+
+export function validateScoreInput(input: ScoreInput): void {
+  validateJudgementCounts(input);
+  if (!Number.isInteger(input.maxCombo) || input.maxCombo < 0) {
+    throw new Error("Score counts must be non-negative integers");
+  }
   if (input.maxCombo > input.notes) throw new Error("Max Combo cannot exceed notes");
-  if (input.maxCombo > input.perfect + input.good) throw new Error("Max Combo cannot exceed Perfect + Good when Bad/Miss break combo");
+  const successful = input.perfect + input.good;
+  const badMiss = input.bad + input.miss;
+  const minimumCombo = Math.ceil(successful / (badMiss + 1));
+  if (input.maxCombo > successful) throw new Error("Max Combo cannot exceed Perfect + Good when Bad/Miss break combo");
+  if (input.maxCombo < minimumCombo) throw new Error("Max Combo cannot be below the theoretical minimum for these judgements");
 }
 
 function rounded(raw: Rational, mode: RoundingMode): bigint {
@@ -65,8 +76,7 @@ export function normalRawScore(input: ScoreInput): Rational {
 }
 
 export function challengeRawScore(input: JudgementCounts & { notes: number }): Rational {
-  const scoreInput: ScoreInput = { ...input, maxCombo: 0 };
-  validateScoreInput(scoreInput);
+  validateJudgementCounts(input);
   const numerator = 1000000n * BigInt(input.perfect) + 650000n * BigInt(input.good);
   return rational(numerator, BigInt(input.notes));
 }
