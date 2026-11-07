@@ -80,6 +80,41 @@ const typeRisk = (type: ChartNoteType): number => {
 
 const riskLabel = (scoreValue: number): "低" | "中" | "高" => scoreValue <= 3 ? "低" : scoreValue <= 6 ? "中" : "高";
 
+type TimelineRiskContext = {
+  sameTimeCount: number[];
+  crossTypeCount: number[];
+  nextGapMs: number[];
+};
+
+const timelineRiskCache = new WeakMap<ChartTimeline, TimelineRiskContext>();
+
+const getTimelineRiskContext = (timeline: ChartTimeline): TimelineRiskContext => {
+  const cached = timelineRiskCache.get(timeline);
+  if (cached) return cached;
+  const sameTime = new Map<number, number>();
+  const groups = new Map<string, ChartNoteType[]>();
+  for (const event of timeline.events) {
+    sameTime.set(event.time, (sameTime.get(event.time) ?? 0) + 1);
+    const key = `${event.time}|${Math.round(event.positionX * 1000) / 1000}`;
+    const group = groups.get(key) ?? [];
+    group.push(event.type);
+    groups.set(key, group);
+  }
+  const crossType = new Map<string, number>();
+  for (const [key, types] of groups) {
+    const hasTapHold = types.some((type) => type === "tap" || type === "hold");
+    const hasDragFlick = types.some((type) => type === "drag" || type === "flick");
+    if (hasTapHold && hasDragFlick) crossType.set(key, 1);
+  }
+  const context = {
+    sameTimeCount: timeline.events.map((event) => sameTime.get(event.time) ?? 1),
+    crossTypeCount: timeline.events.map((event) => crossType.get(`${event.time}|${Math.round(event.positionX * 1000) / 1000}`) ?? 0),
+    nextGapMs: timeline.events.map((event, index) => index + 1 < timeline.events.length ? Math.max(0, timeline.events[index + 1].timeMs - event.timeMs) : Number.POSITIVE_INFINITY),
+  };
+  timelineRiskCache.set(timeline, context);
+  return context;
+};
+
 type ControlSimulation = Omit<ControlPlanResult, "result" | "delta"> & {
   displayScore: number;
 };
@@ -98,6 +133,7 @@ const fastDisplayScore = (perfect: number, good: number, maxCombo: number, notes
  */
 function simulateControlSummary(timeline: ChartTimeline, plan: ControlPlan, rounding: RoundingMode = "nearest"): ControlSimulation {
   const events = timeline.events;
+  const riskContext = getTimelineRiskContext(timeline);
   const model = mergeModel(plan.model);
   if (!Number.isInteger(plan.breakIndex) || plan.breakIndex < 1 || plan.breakIndex > events.length) throw new Error("断连音符序号无效");
   if (!Number.isInteger(plan.releaseAfter) || plan.releaseAfter < plan.breakIndex || plan.releaseAfter > events.length) throw new Error("停止击打位置无效");
@@ -126,7 +162,15 @@ function simulateControlSummary(timeline: ChartTimeline, plan: ControlPlan, roun
   }
 
   const displayScore = fastDisplayScore(perfect, good, maxCombo, events.length, rounding);
-  const riskScore = typeRisk(breakNote.type) + (delayedPerfectCount > 0 ? 1 : 0) + (plan.releaseAfter < events.length ? 1 : 0);
+  const breakOffset = breakNote.index - 1;
+  const releaseOffset = releaseNote.index - 1;
+  const riskScore = typeRisk(breakNote.type)
+    + (delayedPerfectCount > 0 ? 1 : 0)
+    + (plan.releaseAfter < events.length ? 1 : 0)
+    + (riskContext.sameTimeCount[breakOffset] > 1 ? 2 : 0)
+    + (riskContext.crossTypeCount[breakOffset] > 0 ? 3 : 0)
+    + (riskContext.nextGapMs[releaseOffset] < 50 ? 2 : 0)
+    + (timeline.hasLineTransforms ? 1 : 0);
   const breakText = `${breakNote.index}号 ${breakNote.type.toUpperCase()}`;
   const releaseText = `${releaseNote.index}号物量后松手`;
   const explanation = `${breakText}不输入，预计在 ${Math.round(missCommitTime)}ms 后提交 Miss；断连前继续命中 ${delayedPerfectCount} 个音符，${releaseText}。`;
@@ -178,14 +222,14 @@ const compareAtLeast = (a: Pick<ControlSimulation, "displayScore" | "riskScore" 
 /**
  * Search break/release pairs in O(number of candidate notes × chart length).
  * For a normal 1–3k note chart this is fast in a Worker and avoids frame-level
- * input enumeration. Only Tap/Hold are considered by default because an
- * intentional Drag/Flick miss is much harder for a human to execute.
+ * input enumeration. All note types are considered by default; the risk model
+ * ranks Drag/Flick/Hold breaks above a simple Tap miss when possible.
  */
 export function findControlPlans(timeline: ChartTimeline, options: ControlSearchOptions): ControlPlanResult[] {
   if (!Number.isInteger(options.target) || options.target < 0 || options.target > 1_000_000) throw new Error("目标分数必须是 0–1,000,000 的整数");
   const maxPlans = Math.max(1, Math.min(50, Math.floor(options.maxPlans ?? 8)));
   const match = options.match ?? "nearest";
-  const candidateTypes = new Set(options.candidateTypes ?? ["tap", "hold"]);
+  const candidateTypes = new Set(options.candidateTypes ?? ["tap", "hold", "drag", "flick"]);
   const candidates: ControlPlanResult[] = [];
   let bestDistance = Number.POSITIVE_INFINITY;
 

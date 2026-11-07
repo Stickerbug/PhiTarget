@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "../control.css";
+import "../control-embedded.css";
 import type { ChartRecord } from "../data/types";
 import type { ControlPlanResult } from "../core/controlAnalysis";
 
 type Props = {
   charts: ChartRecord[];
   initialChart?: ChartRecord;
+  embedded?: boolean;
 };
 
 type WorkerResponse = {
@@ -22,7 +24,7 @@ const difficultyName: Record<string, string> = { ez: "EZ", hd: "HD", in: "IN", a
 
 const chartLabel = (chart: ChartRecord) => `${chart.title} · ${difficultyName[chart.difficulty] ?? chart.difficulty.toUpperCase()} ${chart.constant?.toFixed(1) ?? "—"}`;
 
-export default function ControlAnalysis({ charts, initialChart }: Props) {
+export default function ControlAnalysis({ charts, initialChart, embedded = false }: Props) {
   const [chartId, setChartId] = useState(initialChart?.chartId ?? charts[0]?.chartId ?? "");
   const [query, setQuery] = useState("");
   const [target, setTarget] = useState(700000);
@@ -33,6 +35,7 @@ export default function ControlAnalysis({ charts, initialChart }: Props) {
   const [hasAnalyzed, setHasAnalyzed] = useState(false);
   const [error, setError] = useState("");
   const [plans, setPlans] = useState<ControlPlanResult[]>([]);
+  const [expandedPlans, setExpandedPlans] = useState<Set<string>>(new Set());
   const [timeline, setTimeline] = useState<WorkerResponse["timeline"]>();
   const workerRef = useRef<Worker | null>(null);
   const requestRef = useRef(0);
@@ -40,6 +43,13 @@ export default function ControlAnalysis({ charts, initialChart }: Props) {
   useEffect(() => {
     if (initialChart?.chartId) setChartId(initialChart.chartId);
   }, [initialChart?.chartId]);
+
+  useEffect(() => {
+    setPlans([]);
+    setTimeline(undefined);
+    setHasAnalyzed(false);
+    setExpandedPlans(new Set());
+  }, [chartId]);
 
   const selected = charts.find((chart) => chart.chartId === chartId) ?? initialChart ?? charts[0];
   const options = useMemo(() => {
@@ -81,6 +91,7 @@ export default function ControlAnalysis({ charts, initialChart }: Props) {
     setHasAnalyzed(true);
     setError("");
     setPlans([]);
+    setExpandedPlans(new Set());
     workerRef.current.postMessage({
       id,
       type: "control",
@@ -90,11 +101,20 @@ export default function ControlAnalysis({ charts, initialChart }: Props) {
         match,
         maxPlans,
         model: { missCommitMs },
+        candidateTypes: ["tap", "hold", "drag", "flick"],
       },
     });
   };
 
-  return <main className="control-page">
+  const Root = embedded ? "section" : "main";
+  const togglePlan = (key: string) => setExpandedPlans((current) => {
+    const next = new Set(current);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    return next;
+  });
+
+  return <Root className={embedded ? "control-embedded" : "control-page"}>
     <header className="control-page-heading">
       <div><small>EVENT-LEVEL SCORE CONTROL</small><h1>控分分析</h1><p>按完整谱面事件模拟“故意漏掉一个音符、延迟断连、指定位置松手”的方案。</p></div>
       <span className="control-mark">Φ</span>
@@ -111,11 +131,16 @@ export default function ControlAnalysis({ charts, initialChart }: Props) {
     {error && <p className="error">{error}</p>}
     {timeline && <div className="control-timeline-meta"><span>{number.format(timeline.noteCount)} NOTES</span><span>BPM {timeline.bpm.toFixed(2).replace(/\.00$/, "")}</span><span>{(timeline.durationMs / 1000).toFixed(1)}s</span><span>{timeline.hasLineTransforms ? "含判定线变换" : "无判定线变换摘要"}</span></div>}
     {!busy && !error && plans.length === 0 && <div className="control-empty">{hasAnalyzed ? "当前判定参数下没有符合条件的方案；可以切换到“最接近”，或调整 Miss 提交延迟。" : "选择谱面和目标分数后开始。对于 70 Minutes Fighters IN，可以先尝试 700000 分和 180ms。"}</div>}
-    <section className="control-results">{plans.map((plan, index) => <article className="control-result" key={`${plan.breakNote.index}-${plan.releaseNote.index}-${index}`}>
-      <div className="control-result-top"><div><small>方案 {index + 1} · {plan.confidence}</small><strong>{number.format(Number(plan.result.display))}</strong><span className={plan.delta === 0 ? "exact" : "delta"}>{plan.delta > 0 ? "+" : ""}{number.format(plan.delta)} · {plan.riskLabel}风险</span></div><div className="control-counts"><b>P {number.format(plan.perfect)}</b><b>G {plan.good}</b><b>B {plan.bad}</b><b>M {number.format(plan.miss)}</b><b>C {number.format(plan.maxCombo)}</b></div></div>
-      <div className="control-result-path"><span>断连：{plan.breakNote.index} {plan.breakNote.type.toUpperCase()} · {plan.breakNote.timeMs.toFixed(1)}ms</span><span>松手：{plan.releaseNote.index}号后</span><span>断连前继续命中：{plan.delayedPerfectCount}</span></div>
-      <p>{plan.explanation}</p>
-      {plan.firstEventAfterMissCommit && <small className="control-result-note">预计第一个处于 Miss 提交之后的事件：{plan.firstEventAfterMissCommit.index} {plan.firstEventAfterMissCommit.type.toUpperCase()}（{plan.firstEventAfterMissCommit.timeMs.toFixed(1)}ms）。</small>}
-    </article>)}</section>
-  </main>;
+    <section className="control-results">{plans.map((plan, index) => {
+      const key = `${plan.breakNote.index}-${plan.releaseNote.index}-${plan.displayScore}`;
+      const expanded = expandedPlans.has(key);
+      return <article className={`control-result ${expanded ? "expanded" : ""}`} key={`${key}-${index}`}>
+        <button type="button" className="control-result-summary" aria-expanded={expanded} onClick={() => togglePlan(key)}>
+          <div className="control-result-top"><div><small>方案 {index + 1} · {plan.confidence}</small><strong>{number.format(Number(plan.result.display))}</strong><span className={plan.delta === 0 ? "exact" : "delta"}>{plan.delta > 0 ? "+" : ""}{number.format(plan.delta)} · {plan.riskLabel}执行难度</span></div><div className="control-counts"><b>P {number.format(plan.perfect)}</b><b>G {plan.good}</b><b>B {plan.bad}</b><b>M {number.format(plan.miss)}</b><b>C {number.format(plan.maxCombo)}</b></div></div>
+          <div className="control-result-route"><span>断连 {plan.breakNote.index} {plan.breakNote.type.toUpperCase()}</span><span>停止 {plan.releaseNote.index}号后</span><i>{expanded ? "收起" : "展开解析"}</i></div>
+        </button>
+        {expanded && <div className="control-result-details"><div className="control-result-path"><span>断连：{plan.breakNote.index} {plan.breakNote.type.toUpperCase()} · {plan.breakNote.timeMs.toFixed(1)}ms</span><span>松手：{plan.releaseNote.index}号后</span><span>断连前继续命中：{plan.delayedPerfectCount}</span></div><p>{plan.explanation}</p>{plan.firstEventAfterMissCommit && <small className="control-result-note">预计第一个处于 Miss 提交之后的事件：{plan.firstEventAfterMissCommit.index} {plan.firstEventAfterMissCommit.type.toUpperCase()}（{plan.firstEventAfterMissCommit.timeMs.toFixed(1)}ms）。</small>}</div>}
+      </article>;
+    })}</section>
+  </Root>;
 }

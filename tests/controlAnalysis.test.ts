@@ -76,4 +76,31 @@ describe("chart timeline and control analysis", () => {
     expect(plans[0]?.good).toBe(0);
     expect(plans[0]?.delta).toBe(0);
   });
+
+  it("can search a Drag break when the strategy explicitly allows it", () => {
+    const timeline = {
+      formatVersion: 3,
+      offsetMs: 0,
+      ticksPerBeat: 32,
+      bpm: 223,
+      durationMs: 1000,
+      hasLineTransforms: false,
+      events: Array.from({ length: 10 }, (_, index) => ({
+        index: index + 1,
+        type: "drag" as const,
+        time: index * 100,
+        timeMs: index * 100,
+        positionX: 0,
+        holdTime: 0,
+        holdTimeMs: 0,
+        lineIndex: 0,
+        side: "above" as const,
+        sourceIndex: index,
+        bpm: 223,
+      })),
+    };
+    const target = Number(simulateControlPlan(timeline, { breakIndex: 4, releaseAfter: 8 }).result.display);
+    const plans = findControlPlans(timeline, { target, match: "exact", maxPlans: 3, candidateTypes: ["drag"] });
+    expect(plans.some((plan) => plan.breakNote.type === "drag")).toBe(true);
+  });
 });
