@@ -10,7 +10,7 @@ const charts = [
 describe("TapTap cloud save mapping", () => {
   it("maps gameRecord difficulty slots to known charts", () => {
     const result = parsePhigrosCloudSave({ data: { saveInfo: { PlayerId: "TestPlayer", summary: { rankingScore: 13.37, challengeModeRank: 302, updatedAt: "2026-11-06T00:00:00Z" } }, gameRecord: { "Demo.Author.0": [{ score: 1_000_000, acc: 100, fc: true }, null, { score: 987_654, acc: 98.76, fc: false }] } } }, charts, "2026-11-06T00:00:00Z");
-    expect(result.profile).toMatchObject({ playerId: "TestPlayer", rks: 13.37, challengeModeRank: 302 });
+    expect(result.profile).toMatchObject({ playerId: "TestPlayer", playerName: "", rks: 13.37, challengeModeRank: 302 });
     expect(result.records).toHaveLength(2);
     expect(result.records[0]).toMatchObject({ chartId: "Demo.Author::ez", songId: "Demo.Author", score: 1_000_000, fc: true, source: "taptap" });
     expect(result.records[1]).toMatchObject({ chartId: "Demo.Author::in", score: 987_654, accuracy: 98.76 });

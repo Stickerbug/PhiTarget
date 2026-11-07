@@ -7,7 +7,9 @@ import { chapterArtworkFor } from "./data/chapterArtwork";
 import ChallengePlanner from "./components/ChallengePlanner";
 import ChallengeScoreReverse from "./components/ChallengeScoreReverse";
 import PlayerProfile from "./components/PlayerProfile";
+import B30Generator from "./components/B30Generator";
 import type { PhigrosCloudData, PhigrosCloudRecord } from "./core/phigrosCloud";
+import { rankForScore, rankLabel, type ScoreRank } from "./core/ranks";
 
 const number = new Intl.NumberFormat("en-US");
 const difficultyOrder = ["ez", "hd", "in", "at"];
@@ -15,11 +17,10 @@ const difficultyName: Record<string, string> = { ez: "EZ", hd: "HD", in: "IN", a
 const sortNames = { default: "默认", title: "曲名", constant: "定数" } as const;
 type SortMode = keyof typeof sortNames;
 type SortDirection = "asc" | "desc";
-type AppView = "library" | "challengeScore" | "challengePlanner" | "profile";
+type AppView = "library" | "challengeScore" | "challengePlanner" | "profile" | "b30";
 const sortModes: SortMode[] = ["default", "title", "constant"];
 const resourceCdn = "https://cdn.jsdelivr.net/gh/7aGiven/Phigros_Resource";
 const assetUrl = (songId: string, branch: "illustration" | "illustrationLowRes" | "illustrationBlur") => `${resourceCdn}@${branch}/${encodeURIComponent(songId)}.png`;
-type ScoreRank = "F" | "C" | "B" | "A" | "S" | "V" | "blueV" | "phi";
 const rankAssets: Record<ScoreRank, string> = { F: "/assets/ranks/F.png", C: "/assets/ranks/C.png", B: "/assets/ranks/B.png", A: "/assets/ranks/A.png", S: "/assets/ranks/S.png", V: "/assets/ranks/V.png", blueV: "/assets/ranks/V-blue.png?v=2", phi: "/assets/ranks/phi.png" };
 const chapterOrder = [
   "单曲精选集", "Chapter Legacy 过去的章节", "Chapter 5 霓虹灯牌", "Chapter 6 方舟蜃景", "Chapter 7 时钟链接", "Chapter 8 凌日潮汐", "Chapter 9 穹顶孤舟",
@@ -30,8 +31,6 @@ const chapterOrder = [
 const normalizeSearch = (value: string) => value.normalize("NFKD").toLowerCase().replace(/\p{M}/gu, "").replace(/[^\p{L}\p{N}]+/gu, "");
 const formatScore = (value: bigint | number) => typeof value === "bigint" ? value.toString() : number.format(value);
 const formatNote = (value: number | null) => value === null ? "—" : number.format(value);
-const rankForScore = (score: number, fullCombo = false): ScoreRank => score >= 1_000_000 ? "phi" : fullCombo ? "blueV" : score >= 960_000 ? "V" : score >= 920_000 ? "S" : score >= 880_000 ? "A" : score >= 820_000 ? "B" : score >= 700_000 ? "C" : "F";
-const rankLabel: Record<ScoreRank, string> = { F: "F", C: "C", B: "B", A: "A", S: "S", V: "V", blueV: "蓝V", phi: "Phi" };
 const ChapterText = ({ value }: { value: string }) => <>{value.split("³").map((part, index, parts) => <Fragment key={`${part}-${index}`}>{part}{index < parts.length - 1 && <sup>3</sup>}</Fragment>)}</>;
 const chapterOuterName = (chapter: string) => {
   if (chapter === "all") return "Phigros";
@@ -166,8 +165,8 @@ export default function App() {
   if (!dataset) return <main className="loading-screen"><span className="loading-mark">Φ</span><p>正在读取曲库索引…</p></main>;
 
   return <main className="app-shell">
-    <nav className="app-nav" aria-label="PhiTarget 页面"><button type="button" className={view === "library" ? "active" : ""} onClick={() => setView("library")}><span>曲库</span><small>目标分数</small></button><button type="button" className={view === "challengeScore" ? "active" : ""} onClick={() => setView("challengeScore")}><span>课题分反推</span><small>单曲目标</small></button><button type="button" className={view === "challengePlanner" ? "active" : ""} onClick={() => setView("challengePlanner")}><span>课题三曲</span><small>目标总分</small></button><button type="button" className={view === "profile" ? "active" : ""} onClick={() => setView("profile")}><span>玩家数据</span><small>TapTap 云档</small></button></nav>
-    {view === "challengeScore" ? <ChallengeScoreReverse charts={charts} /> : view === "challengePlanner" ? <ChallengePlanner charts={charts} playerRecords={playerRecords} playerRks={playerProfile?.rks ?? null} /> : view === "profile" ? <PlayerProfile charts={charts} records={playerRecords} profile={playerProfile} fetchedAt={playerFetchedAt} onLoaded={(data) => { setPlayerRecords(data.records); setPlayerProfile(data.profile); setPlayerFetchedAt(data.fetchedAt); }} /> : <>
+    <nav className="app-nav" aria-label="PhiTarget 页面"><button type="button" className={view === "library" ? "active" : ""} onClick={() => setView("library")}><span>曲库</span><small>目标分数</small></button><button type="button" className={view === "challengeScore" ? "active" : ""} onClick={() => setView("challengeScore")}><span>课题分反推</span><small>单曲目标</small></button><button type="button" className={view === "challengePlanner" ? "active" : ""} onClick={() => setView("challengePlanner")}><span>课题三曲</span><small>目标总分</small></button><button type="button" className={view === "profile" ? "active" : ""} onClick={() => setView("profile")}><span>玩家数据</span><small>TapTap 云档</small></button><button type="button" className={view === "b30" ? "active" : ""} onClick={() => setView("b30")}><span>B30 图片</span><small>浏览器生成</small></button></nav>
+    {view === "challengeScore" ? <ChallengeScoreReverse charts={charts} /> : view === "challengePlanner" ? <ChallengePlanner charts={charts} playerRecords={playerRecords} playerRks={playerProfile?.rks ?? null} /> : view === "profile" ? <PlayerProfile charts={charts} records={playerRecords} profile={playerProfile} fetchedAt={playerFetchedAt} onLoaded={(data) => { setPlayerRecords(data.records); setPlayerProfile(data.profile); setPlayerFetchedAt(data.fetchedAt); }} /> : view === "b30" ? <B30Generator charts={charts} records={playerRecords} profile={playerProfile} fetchedAt={playerFetchedAt} onLoaded={(data) => { setPlayerRecords(data.records); setPlayerProfile(data.profile); setPlayerFetchedAt(data.fetchedAt); }} /> : <>
     <section className="game-screen" style={chapterArt ? { "--selected-art": `url(${chapterArt})` } as CSSProperties : undefined}>
       <div className="network-lines" />
       <header className="game-header"><div className="game-header-title"><small><ChapterText value={chapterOuterLabel} /></small><strong><ChapterText value={chapterLabel} /></strong></div><div className="player-chip"><span className="player-level">40</span></div></header>

@@ -18,6 +18,7 @@ export type PhigrosCloudRecord = {
 
 export type PhigrosCloudProfile = {
   playerId: string;
+  playerName: string;
   rks: number | null;
   challengeModeRank: number | null;
   updatedAt: string | null;
@@ -92,6 +93,7 @@ export function parsePhigrosCloudSave(value: unknown, charts: ChartRecord[], fet
     records,
     profile: {
       playerId: text(saveInfo.PlayerId),
+      playerName: text(saveInfo.PlayerName) || text(saveInfo.playerName) || text(saveInfo.nickname) || text(summary.name) || text(summary.nickname),
       rks: asNumber(summary.rankingScore),
       challengeModeRank: asNumber(summary.challengeModeRank),
       updatedAt: text(summary.updatedAt) || text(modifiedAt.iso) || null,

@@ -1,7 +1,7 @@
 # PhiTarget 开发包
 
 **产品名：** PhiTarget  
-**副标题：** Phigros Goal Score & Challenge Planner  
+**副标题：** Phigros Goal Score & B30 Toolkit
 **定位：** Phigros 目标分数反推、可达分数分析、课题总分三曲组合工具。
 **原则：** 纯静态优先、无需账号、成绩通过 sessionToken 从 TapTap 云存档读取，PhiTarget 不保存玩家凭证或成绩。
 
@@ -19,7 +19,7 @@
 
 ## 当前可运行基线
 
-仓库已初始化为 TypeScript + Vite + React 的静态应用。当前页面提供游戏式章节/歌曲选择、普通模式目标分数反推，以及 FC、固定 Max Combo 和普通模式理论可达分数分析；计分核心位于 `src/core/`，不依赖 UI 或浏览器 API。课题分反推和课题三曲组合现在是两个独立页面；组合页按给定课题总分搜索三首不同歌曲，连接 TapTap 云档后可按个人已有成绩筛选，也可使用数量模型给出公式候选。玩家数据页面使用 Phigros sessionToken 直接读取 TapTap 云存档，并在当前页面内存中展示已匹配成绩。铭牌规则仍使用待校准的版本化配置。
+仓库已初始化为 TypeScript + Vite + React 的静态应用。当前页面提供游戏式章节/歌曲选择、普通模式目标分数反推，以及 FC、固定 Max Combo 和普通模式理论可达分数分析；计分核心位于 `src/core/`，不依赖 UI 或浏览器 API。课题分反推和课题三曲组合现在是两个独立页面；组合页按给定课题总分搜索三首不同歌曲，连接 TapTap 云档后可按个人已有成绩筛选，也可使用数量模型给出公式候选。玩家数据页面使用 Phigros sessionToken 直接读取 TapTap 云存档，B30 页面可在浏览器内计算 φ3 + B27 并生成 PNG，token 和成绩仍只保留在当前页面内存。铭牌规则仍使用待校准的版本化配置。
 
 当前曲库快照已包含 327 首歌曲、1,037 张谱面，以及章节、曲师、曲绘画师、谱师、定数和四类音符统计。来源与再生成说明见 `src/data/SOURCES.md`。
 

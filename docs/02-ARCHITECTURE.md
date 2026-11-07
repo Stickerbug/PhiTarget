@@ -11,7 +11,7 @@ TypeScript + Vite；React（若已有仓库则沿用）；Web Worker；Vitest；
 src/
   pages/ target-score/ challenge-combinations/ reachable-scores/ player-profile/ settings/
   components/ chart-card/ score-breakdown/ badge-selector/ plan-card/ filter-panel/ score-bucket-chart/
-  core/ scoring/ normal-solver/ challenge-solver/ reachable-scores/ challenge-combinations/ personal-model/
+  core/ scoring/ normal-solver/ challenge-solver/ reachable-scores/ challenge-combinations/ personal-model/ rks/
   data/ schemas/ loaders/ versions/
   adapters/ phigros-cloud/
   workers/
@@ -27,11 +27,13 @@ flowchart TD
  C --> D["计分引擎"]
  C --> E["课题三曲组合器"]
  C --> F["可达分数分析器"]
+ C --> K["RKS / B30 模型"]
  G["charts.json / rules.json"] --> D
  G --> E
  H["sessionToken"] --> I["TapTap 云档适配器"]
  I --> J["统一玩家数据模型"]
  J --> E
+ J --> K
  D --> L["Web Worker"]
  E --> L
  F --> L

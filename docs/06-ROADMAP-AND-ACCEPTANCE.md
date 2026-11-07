@@ -53,7 +53,7 @@
 - 最高/近期/保守成绩统计；
 - 个人匹配路线排序。
 
-当前实现：`PlayerProfile` 直接读取 PhiHub/phi-plugin 的 TapTap 云档，成绩只存于 React state；课题三曲组合可读取云档最佳成绩进行三数搜索。统计结果仍以描述性指标为主，不输出未经校准的成功概率。
+当前实现：`PlayerProfile` 直接读取 PhiHub/phi-plugin 的 TapTap 云档，成绩只存于 React state；课题三曲组合可读取云档最佳成绩进行三数搜索；B30 页面可计算单曲 RKS、φ3 + B27 并在浏览器生成 PNG。统计结果仍以描述性指标为主，不输出未经校准的成功概率。
 
 验收：
 - 不保存 sessionToken 或个人云档；
