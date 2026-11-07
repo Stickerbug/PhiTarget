@@ -1,6 +1,5 @@
 import { Fragment, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
-import { solveFcTarget, solveNormalTarget, solveNormalUnrestrictedTarget } from "./core/solver";
 import { nearestReachableScores, type ReachableScoreAnalysis, type ReachabilityMode } from "./core/reachable";
 import type { ChartConstraintProfile, ChartDataset, ChartRecord } from "./data/types";
 import { chapterArtworkFor } from "./data/chapterArtwork";
@@ -10,7 +9,7 @@ import PlayerProfile from "./components/PlayerProfile";
 import B30Generator from "./components/B30Generator";
 import ControlAnalysis from "./components/ControlAnalysis";
 import type { PhigrosCloudData, PhigrosCloudRecord } from "./core/phigrosCloud";
-import { rankForScore, rankLabel, type ScoreRank } from "./core/ranks";
+import { rankForScore, type ScoreRank } from "./core/ranks";
 import { useCloudAccounts } from "./hooks/useCloudAccounts";
 
 const number = new Intl.NumberFormat("en-US");
@@ -31,7 +30,6 @@ const chapterOrder = [
 ];
 
 const normalizeSearch = (value: string) => value.normalize("NFKD").toLowerCase().replace(/\p{M}/gu, "").replace(/[^\p{L}\p{N}]+/gu, "");
-const formatScore = (value: bigint | number) => typeof value === "bigint" ? value.toString() : number.format(value);
 const formatNote = (value: number | null) => value === null ? "—" : number.format(value);
 const ChapterText = ({ value }: { value: string }) => <>{value.split("³").map((part, index, parts) => <Fragment key={`${part}-${index}`}>{part}{index < parts.length - 1 && <sup>3</sup>}</Fragment>)}</>;
 const chapterOuterName = (chapter: string) => {
@@ -88,10 +86,6 @@ export default function App() {
   const [selectedId, setSelectedId] = useState("");
   const [selectedDifficulty, setSelectedDifficulty] = useState("ez");
   const [target, setTarget] = useState(950000);
-  const [match, setMatch] = useState<"exact" | "atLeast" | "nearest">("nearest");
-  const [scoreMode, setScoreMode] = useState<"normal" | "fc" | "combo">("normal");
-  const [analysisMode, setAnalysisMode] = useState<"quick" | "precise">("quick");
-  const [maxCombo, setMaxCombo] = useState(1000);
   const [reachabilityMode, setReachabilityMode] = useState<ReachabilityMode>("normal");
   const [reachabilityCombo, setReachabilityCombo] = useState(1000);
   const [view, setView] = useState<AppView>("library");
@@ -152,14 +146,6 @@ export default function App() {
   const selectedSongCharts = useMemo(() => selected ? charts.filter((chart) => chart.songId === selected.songId).sort((a, b) => difficultyOrder.indexOf(a.difficulty) - difficultyOrder.indexOf(b.difficulty)) : [], [charts, selected]);
   const notes = selected?.noteCount ?? 1000;
   const goodCap = selected && selected.noteCounts.tap !== null && selected.noteCounts.hold !== null ? Math.min(notes, selected.noteCounts.tap + selected.noteCounts.hold) : notes;
-  const effectiveCombo = scoreMode === "fc" ? notes : Math.min(maxCombo, notes);
-  const state = useMemo(() => {
-    try {
-      const solutions = scoreMode === "normal" ? solveNormalUnrestrictedTarget(notes, target, match, "nearest", goodCap) : scoreMode === "fc" ? solveFcTarget(notes, target, match, "nearest", goodCap) : solveNormalTarget(notes, effectiveCombo, target, match, "nearest", goodCap);
-      return { solutions, error: "" };
-    } catch (error) { return { solutions: [], error: error instanceof Error ? error.message : "Invalid input" }; }
-  }, [effectiveCombo, goodCap, match, notes, scoreMode, target]);
-  const solutionRank = (solution: (typeof state.solutions)[number]) => rankForScore(Number(solution.result.display), "badMiss" in solution ? solution.badMiss === 0 && solution.maxCombo === notes : solution.maxCombo === notes);
   useEffect(() => {
     if (!dataset) return;
     try {
@@ -256,12 +242,8 @@ export default function App() {
         </section>
       </div>
     </section>
-    <section className="analysis-switcher"><div><small>控分分析</small><strong>{analysisMode === "quick" ? "快速搜索" : "精确搜索"}</strong><span>{analysisMode === "quick" ? "使用计分公式快速反推判定数量" : "读取完整谱面，搜索可执行的断连与停止击打方案"}</span></div><div className="analysis-switcher-buttons"><button type="button" className={analysisMode === "quick" ? "active" : ""} onClick={() => setAnalysisMode("quick")}>快速搜索</button><button type="button" className={analysisMode === "precise" ? "active" : ""} onClick={() => setAnalysisMode("precise")}>精确搜索</button></div></section>
-    {analysisMode === "quick" && <>
-    <section className="calculator-panel"><div className="calculator-heading"><h2>目标分数反推</h2><span>{number.format(songRows.length)} 首歌曲</span></div><div className="solver-controls"><label>计分约束<select value={scoreMode} onChange={(event) => setScoreMode(event.target.value as typeof scoreMode)}><option value="normal">普通模式 / 不限制 FC</option><option value="fc">FC / 无 Bad · Miss</option><option value="combo">指定 Max Combo / 合并 Bad + Miss</option></select></label><label>目标分数<input type="number" min="0" max="1000000" value={target} onChange={(event) => setTarget(Number(event.target.value))} /></label>{scoreMode === "combo" && <label>Max Combo<input type="number" min="0" max={notes} value={maxCombo} onChange={(event) => setMaxCombo(Number(event.target.value))} /></label>}<label>求解方式<select value={match} onChange={(event) => setMatch(event.target.value as typeof match)}><option value="nearest">最接近目标</option><option value="exact">精确命中</option><option value="atLeast">至少达到</option></select></label></div><p className="formula-line">N = {number.format(notes)} · {scoreMode === "normal" ? "普通模式 · 不限制 FC" : scoreMode === "fc" ? "FC 模式" : `固定 Max Combo = ${number.format(effectiveCombo)}`} · Bad + Miss 按同一分值误差组计算，且会打断 Combo</p>{state.error ? <p className="error">{state.error}</p> : <div className="solutions">{state.solutions.map((solution) => { const rank = solutionRank(solution); return <div className="solution" key={`${solution.good}-${solution.maxCombo}-${solution.result.display}-${"badMiss" in solution ? solution.badMiss : 0}`}><div><strong>{formatScore(solution.result.display)}</strong><small>P {solution.perfect} · G {solution.good} · {"badMiss" in solution ? `B + M ${solution.badMiss}` : "B 0 · M 0"} · C {solution.maxCombo}</small></div><span className="solution-rank"><img src={rankAssets[rank]} alt={rankLabel[rank]} /><small>{rankLabel[rank]} · {"badMiss" in solution ? (solution.badMiss === 0 && solution.maxCombo === notes ? "FC" : "普通") : "FC"}</small></span><b className={solution.delta === 0 ? "exact" : "delta"}>{solution.delta > 0 ? "+" : ""}{formatScore(solution.delta)}</b></div>; })}</div>}</section>
+    <ControlAnalysis chart={selected} target={target} onTargetChange={setTarget} embedded />
     <section className="calculator-panel reachable-panel"><div className="calculator-heading"><h2>可达分数</h2><span>公式 + 结构参考</span></div><div className="solver-controls reachable-controls"><label>计算模型<select value={reachabilityMode} onChange={(event) => setReachabilityMode(event.target.value as ReachabilityMode)}><option value="normal">普通模式 / 不限制 FC</option><option value="fc">FC</option><option value="fixedCombo">固定 Max Combo</option></select></label>{reachabilityMode === "fixedCombo" && <label>Max Combo<input type="number" min="0" max={notes} value={Math.min(reachabilityCombo, notes)} onChange={(event) => setReachabilityCombo(Number(event.target.value))} /></label>}<label>目标附近分数<input type="number" min="0" max="1000000" value={target} onChange={(event) => setTarget(Number(event.target.value))} /></label></div>{reachableBusy ? <p className="reachable-note">正在后台计算可达分数…</p> : reachableState.error ? <p className="error">{reachableState.error}</p> : reachableState.analysis && <><div className="reachable-summary"><div><strong>{number.format(reachableState.analysis.total)}</strong><small>不同可达分数</small></div><div><strong>{number.format(reachableState.analysis.min)}</strong><small>最低</small></div><div><strong>{number.format(reachableState.analysis.max)}</strong><small>最高</small></div></div><div className="reachable-nearby"><small>目标 {number.format(target)} 附近</small><div>{reachableNearby.map((scoreValue) => <span key={scoreValue} className={scoreValue === target ? "exact" : ""}>{number.format(scoreValue)}</span>)}</div></div><div className="reachable-buckets"><small>分数分布（每 5,000 分）</small><div>{reachableState.analysis.buckets.map((bucket) => <span key={bucket.start}>{number.format(bucket.start)}–{number.format(bucket.end)} <b>{number.format(bucket.count)}</b></span>)}</div></div><p className="reachable-note">Good 上限为 {number.format(reachableState.analysis.goodCap)}（Tap + Hold）；Flick/Drag 没有 Good；Bad/Miss 会打断 Combo，理论范围为 ceil((P + G) / (B + M + 1)) ≤ C ≤ P + G。{selectedConstraint ? `本谱面已离线检查 ${number.format(selectedConstraint.crossTypeConflictGroupCount)} 组跨类型同触点音符；` : "当前没有结构摘要；"}本计算不保证每个分数在真实谱面中都能打出。</p></>}</section>
-    </>}
-    {analysisMode === "precise" && <ControlAnalysis chart={selected} target={target} onTargetChange={setTarget} embedded />}
     </>}
   </main>;
 }

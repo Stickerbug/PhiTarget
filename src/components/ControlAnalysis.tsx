@@ -88,12 +88,15 @@ export default function ControlAnalysis({ chart, target, onTargetChange, embedde
 
   const Root = embedded ? "section" : "main";
 
-  return <Root className={embedded ? "control-embedded" : "control-page"}>
-    <header className="calculator-heading control-page-heading">
+  return <Root className={embedded ? "calculator-panel control-embedded" : "control-page"}>
+    {embedded ? <div className="calculator-heading">
+      <div><h2>目标分数反推</h2><span>{chart ? `${chart.title} · ${difficultyName[chart.difficulty] ?? chart.difficulty.toUpperCase()} ${chart.constant?.toFixed(1) ?? "—"}` : "请先在上方歌曲列表选择谱面"}</span></div>
+      <small>完整谱面事件</small>
+    </div> : <header className="calculator-heading control-page-heading">
       <div><small>EVENT-LEVEL SCORE CONTROL</small><h1>精确搜索</h1><p>{chart ? `${chart.title} · ${difficultyName[chart.difficulty] ?? chart.difficulty.toUpperCase()} ${chart.constant?.toFixed(1) ?? "—"}` : "请先在上方歌曲列表选择谱面"}</p></div>
       <span className="control-mark">Φ</span>
-    </header>
-    <section className="control-panel solver-controls precise-settings">
+    </header>}
+    <section className="solver-controls precise-settings">
       <label className="control-field"><span>目标分数</span><input type="number" min="0" max="1000000" value={target} onChange={(event) => onTargetChange(Number(event.target.value))} /></label>
       <label className="control-field"><span>匹配方式</span><select value={match} onChange={(event) => setMatch(event.target.value as typeof match)}><option value="exact">精确命中</option><option value="nearest">最接近</option><option value="atLeast">至少达到</option></select></label>
       <label className="control-field"><span>Miss 提交延迟（ms）</span><input type="number" min="1" max="500" value={missCommitMs} onChange={(event) => setMissCommitMs(Number(event.target.value))} /></label>
