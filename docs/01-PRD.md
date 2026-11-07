@@ -18,7 +18,7 @@ PhiTarget 是面向 Phigros 玩家的目标导向工具，不重复建设 B30/RK
 6. 展示某谱面全部可达分数，或只看 940000–960000。
 
 ## 产品原则
-- Credential-minimal：sessionToken 只在当前页面内存中使用，不写入 PhiTarget 的存储、URL、日志或统计服务。
+- Credential-minimal：默认只在当前页面内存中使用 sessionToken；用户主动勾选“本机保存账号”后，才写入当前浏览器 localStorage，不写入 URL、日志、统计服务或 PhiTarget 后端。
 - Static-first：首版纯静态部署。
 - No account：不要求注册或登录 PhiTarget；玩家通过已有 Phigros sessionToken 读取绑定的 TapTap 云存档。
 - Explainable：推荐展示依据和安全余量。
@@ -53,7 +53,7 @@ PhiTarget 是面向 Phigros 玩家的目标导向工具，不重复建设 B30/RK
 - 谱面特征分组与个人强弱估计。
 - 课题路线按个人数据排序。
 - 课题模式可达分数集合、分桶、目标附近查询。
-- 云档记录只在当前页面内存中使用，刷新后需要重新连接。
+- 云档记录只在当前页面内存中使用；未保存 token 时刷新后需要重新连接，保存的账号只用于重新填充 token，不自动上传成绩到 PhiTarget。
 
 ## P2 生态集成
 - TapTap/云档接口适配的版本兼容与错误提示。
@@ -62,7 +62,7 @@ PhiTarget 是面向 Phigros 玩家的目标导向工具，不重复建设 B30/RK
 - 完整谱面顺序验证。
 
 ## 当前阶段边界
-当前版本提供浏览器内 B30 图片和资料卡，但不做 PhiTarget 自有账号系统或云端个人成绩库；不把 sessionToken 写入 PhiTarget 存储；不依赖机器人在线；不以谱面定数作为个人实际难度的唯一判断。B30 缺少 ACC 时会明确排除，不从普通模式总分猜测 ACC。
+当前版本提供浏览器内 B30 图片和资料卡，但不做 PhiTarget 自有账号系统或云端个人成绩库；不把 sessionToken 写入 PhiTarget 后端、URL 或日志；本机保存只在用户主动勾选后写入浏览器 localStorage；不依赖机器人在线；不以谱面定数作为个人实际难度的唯一判断。B30 缺少 ACC 时会明确排除，不从普通模式总分猜测 ACC。
 
 ## 结果可信等级
 - **公式可达**：仅依据计分公式和计数约束。

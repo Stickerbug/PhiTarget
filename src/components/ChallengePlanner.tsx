@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { findChallengeCombinations, type ChallengeCombinationMatch, type ChallengeCombinationPlan } from "../core/challenge";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { ChallengeCombinationMatch, ChallengeCombinationPlan } from "../core/challenge";
 import type { PhigrosCloudRecord } from "../core/phigrosCloud";
 import type { ChartRecord } from "../data/types";
 
@@ -38,22 +38,60 @@ export default function ChallengePlanner({ charts, playerRecords, playerRks }: P
     return best;
   }, [playerRecords]);
   const chapters = useMemo(() => [...new Set(charts.map((chart) => chart.chapter))], [charts]);
-  const plansState = useMemo(() => {
+  const workerRef = useRef<Worker | null>(null);
+  const requestId = useRef(0);
+  const [workerReady, setWorkerReady] = useState(false);
+  const [calculating, setCalculating] = useState(true);
+  const [plansState, setPlansState] = useState<{ plans: ChallengeCombinationPlan[]; error: string }>({ plans: [], error: "" });
+  useEffect(() => {
     try {
-      const plans = findChallengeCombinations(charts, target, match, {
-        difficulties,
-        chapter,
-        minConstant: minConstant === "" ? null : Number(minConstant),
-        maxConstant: maxConstant === "" ? null : Number(maxConstant),
-        personalBest,
-        usePersonal,
-        maxPlans: 12,
-      });
-      return { plans, error: "" };
-    } catch (error) {
-      return { plans: [], error: error instanceof Error ? error.message : "课题组合参数无效" };
+      const worker = new Worker(new URL("../workers/calculation.worker.ts", import.meta.url), { type: "module" });
+      workerRef.current = worker;
+      worker.postMessage({ type: "init", charts });
+      setWorkerReady(true);
+      worker.onmessage = (event: MessageEvent<{ id: number; plans: ChallengeCombinationPlan[]; error: string }>) => {
+        if (event.data.id !== requestId.current) return;
+        setPlansState({ plans: event.data.plans, error: event.data.error });
+        setCalculating(false);
+      };
+      worker.onerror = () => {
+        setPlansState({ plans: [], error: "课题组合计算线程启动失败，请刷新页面重试。" });
+        setCalculating(false);
+      };
+      return () => {
+        worker.terminate();
+        workerRef.current = null;
+        setWorkerReady(false);
+      };
+    } catch {
+      setPlansState({ plans: [], error: "当前浏览器不支持后台计算线程。" });
+      setCalculating(false);
+      return undefined;
     }
-  }, [chapter, charts, difficulties, match, maxConstant, minConstant, personalBest, target, usePersonal]);
+  }, [charts]);
+  useEffect(() => {
+    if (!workerReady || !workerRef.current) return;
+    const timer = window.setTimeout(() => {
+      const id = ++requestId.current;
+      setCalculating(true);
+      workerRef.current?.postMessage({
+        id,
+        type: "combinations",
+        target,
+        match,
+        options: {
+          difficulties,
+          chapter,
+          minConstant: minConstant === "" ? null : Number(minConstant),
+          maxConstant: maxConstant === "" ? null : Number(maxConstant),
+          personalBest: usePersonal ? [...personalBest.entries()] : [],
+          usePersonal,
+          maxPlans: 12,
+        },
+      });
+    }, 90);
+    return () => window.clearTimeout(timer);
+  }, [chapter, difficulties, match, maxConstant, minConstant, personalBest, target, usePersonal, workerReady]);
   const cloudConnected = playerRks !== null || playerRecords.length > 0;
   const personalMode = usePersonal && personalBest.size > 0;
   const toggleDifficulty = (difficulty: string) => setDifficulties((current) => current.includes(difficulty) ? current.filter((item) => item !== difficulty) : [...current, difficulty]);
@@ -67,7 +105,7 @@ export default function ChallengePlanner({ charts, playerRecords, playerRks }: P
       <p className="challenge-rule-note">组合保证三首歌曲不同；个人模式只使用云档中已有成绩的谱面，公式模式把总分近似均分到三首歌。结果用于组合筛选与分数分配参考，不代表真实谱面一定能打出。</p>
     </section>
     <section className="challenge-result-heading"><div><strong>{plansState.plans.length}</strong><span>组候选</span></div><div><strong>{number.format(target)}</strong><span>目标课题分</span></div><div><strong>{personalMode ? "个人成绩" : "公式估算"}</strong><span>组合依据</span></div></section>
-    {plansState.error ? <p className="challenge-empty">{plansState.error}</p> : plansState.plans.length ? <div className="challenge-plan-grid">{plansState.plans.map((plan, index) => <PlanCard key={`${index}-${plan.charts.map((chart) => chart.chartId).sort().join("|")}`} plan={plan} target={target} />)}</div> : <p className="challenge-empty">{personalMode ? "当前筛选下没有三首已游玩且能达到目标的组合；请取消个人成绩限制或放宽难度、定数和章节筛选。" : "当前筛选下没有满足目标的三曲组合；请调整目标分数、难度或定数范围。"}</p>}
+    {calculating ? <p className="challenge-empty">正在后台计算组合…</p> : plansState.error ? <p className="challenge-empty">{plansState.error}</p> : plansState.plans.length ? <div className="challenge-plan-grid">{plansState.plans.map((plan, index) => <PlanCard key={`${index}-${plan.charts.map((chart) => chart.chartId).sort().join("|")}`} plan={plan} target={target} />)}</div> : <p className="challenge-empty">{personalMode ? "当前筛选下没有三首已游玩且能达到目标的组合；请取消个人成绩限制或放宽难度、定数和章节筛选。" : "当前筛选下没有满足目标的三曲组合；请调整目标分数、难度或定数范围。"}</p>}
     <p className="challenge-model-note">课题总分使用单曲课题分相加；Good 上限按 Tap + Hold 统计，Flick/Drag 不计 Good。公式模式只检查数量模型，个人模式只把 TapTap 成绩作为已有成绩参考。</p>
   </main>;
 }

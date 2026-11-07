@@ -63,7 +63,7 @@ Phase 1 需要一个可审计、可版本化的曲库来源，至少覆盖 `char
 
 产品核心适合纯静态部署：HTML/CSS/JS/JSON 托管在 CDN，公式计算在主线程，组合搜索和可达分数枚举在 Web Worker。玩家通过 sessionToken 直接读取 PhiHub 的 TapTap 云档，映射后的成绩只放在当前页面内存，不写入 IndexedDB。
 
-云档读取依赖 `https://phib19.top:8080/get/cloud/saves` 的跨域许可。PhiTarget 不保存 token、成绩、导出文件或备份，也不提供 JSON/CSV 上传和手动成绩库。
+云档读取依赖 `https://phib19.top:8080/get/cloud/saves` 的跨域许可。PhiTarget 默认不保存 token、成绩、导出文件或备份；用户主动保存账号时仅在当前浏览器 localStorage 保存 token、服务器和名称，也不提供 JSON/CSV 上传和手动成绩库。
 
 ## UI 方案与参考图映射
 

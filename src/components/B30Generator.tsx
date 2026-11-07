@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChartRecord } from "../data/types";
 import { buildB30Model, type B30Model, type RksEntry } from "../core/rks";
-import { rankForScore, rankLabel, type ScoreRank } from "../core/ranks";
-import { fetchPhigrosCloudSave, type PhigrosCloudData, type PhigrosCloudRecord } from "../core/phigrosCloud";
+import { rankForScore, type ScoreRank } from "../core/ranks";
+import type { PhigrosCloudData, PhigrosCloudRecord } from "../core/phigrosCloud";
+import CloudAccountPanel from "./CloudAccountPanel";
+import type { CloudAccountsController } from "../hooks/useCloudAccounts";
 
 const number = new Intl.NumberFormat("en-US");
 const resourceCdn = "https://cdn.jsdelivr.net/gh/7aGiven/Phigros_Resource";
@@ -23,7 +25,9 @@ type Props = {
   records: PhigrosCloudRecord[];
   profile: PhigrosCloudData["profile"] | null;
   fetchedAt: string | null;
+  cloud: CloudAccountsController;
   onLoaded: (data: PhigrosCloudData) => void;
+  onAccountChange: () => void;
 };
 
 const canvasWidth = 1600;
@@ -32,20 +36,42 @@ const cardWidth = 296;
 const cardHeight = 142;
 const cardGap = 12;
 
-const fitText = (context: CanvasRenderingContext2D, value: string, maxWidth: number) => {
-  if (context.measureText(value).width <= maxWidth) return value;
-  let result = value;
-  while (result.length > 2 && context.measureText(`${result}…`).width > maxWidth) result = result.slice(0, -1);
-  return `${result}…`;
+const wrapText = (context: CanvasRenderingContext2D, value: string, maxWidth: number, maxLines: number) => {
+  const lines: string[] = [];
+  let cursor = 0;
+  while (cursor < value.length && lines.length < maxLines) {
+    let line = "";
+    while (cursor < value.length) {
+      const next = `${line}${value[cursor]}`;
+      if (line && context.measureText(next).width > maxWidth) break;
+      line = next;
+      cursor += 1;
+    }
+    if (!line) {
+      line = value[cursor];
+      cursor += 1;
+    }
+    lines.push(line);
+  }
+  if (cursor < value.length && lines.length) lines[lines.length - 1] += value.slice(cursor);
+  return lines;
 };
 
-const loadImage = (source: string) => new Promise<HTMLImageElement | null>((resolve) => {
+const imageCache = new Map<string, Promise<HTMLImageElement | null>>();
+
+const loadImage = (source: string) => {
+  const cached = imageCache.get(source);
+  if (cached) return cached;
+  const pending = new Promise<HTMLImageElement | null>((resolve) => {
   const image = new Image();
   image.crossOrigin = "anonymous";
   image.onload = () => resolve(image);
   image.onerror = () => resolve(null);
   image.src = source;
-});
+  });
+  imageCache.set(source, pending);
+  return pending;
+};
 
 const paintCard = (context: CanvasRenderingContext2D, entry: RksEntry, index: number, art: HTMLImageElement | null, rankArt: HTMLImageElement | null) => {
   const column = index % 5;
@@ -60,37 +86,41 @@ const paintCard = (context: CanvasRenderingContext2D, entry: RksEntry, index: nu
   context.fillRect(x, y, 5, cardHeight);
   context.save();
   context.beginPath();
-  context.rect(x + 12, y + 12, 105, 72);
+  context.rect(x + 12, y + 12, 88, 62);
   context.clip();
   if (art) {
-    const scale = Math.max(105 / art.width, 72 / art.height);
+    const scale = Math.max(88 / art.width, 62 / art.height);
     const width = art.width * scale;
     const height = art.height * scale;
-    context.drawImage(art, x + 12 + (105 - width) / 2, y + 12 + (72 - height) / 2, width, height);
+    context.drawImage(art, x + 12 + (88 - width) / 2, y + 12 + (62 - height) / 2, width, height);
   } else {
     context.fillStyle = "#0e1419";
-    context.fillRect(x + 12, y + 12, 105, 72);
+    context.fillRect(x + 12, y + 12, 88, 62);
     context.fillStyle = "#65727a";
-    context.font = "14px PhiHybrid, sans-serif";
-    context.fillText("NO ART", x + 29, y + 53);
+    context.font = "12px PhiHybrid, sans-serif";
+    context.fillText("NO ART", x + 29, y + 49);
   }
   context.restore();
   context.fillStyle = "#f4f4f1";
-  context.font = "600 18px PhiHybrid, sans-serif";
-  context.fillText(fitText(context, entry.chart.title, 154), x + 132, y + 31);
+  const titleSize = entry.chart.title.length > 34 ? 11 : entry.chart.title.length > 24 ? 13 : 16;
+  context.font = `600 ${titleSize}px PhiHybrid, sans-serif`;
+  const titleLines = wrapText(context, entry.chart.title, 174, 3);
+  titleLines.forEach((line, lineIndex) => context.fillText(line, x + 110, y + 25 + lineIndex * (titleSize + 2)));
   context.fillStyle = "#9eabb1";
-  context.font = "13px PhiHybrid, sans-serif";
-  context.fillText(`${entry.chart.difficulty.toUpperCase()} ${entry.chart.constant?.toFixed(1) ?? "—"}`, x + 132, y + 55);
-  context.fillText(`${number.format(entry.record.score)} · ${entry.accuracy.toFixed(2)}%`, x + 132, y + 76);
-  if (rankArt) context.drawImage(rankArt, x + 232, y + 91, 39, 40);
-  context.fillStyle = rank === "phi" ? "#f0c965" : rank === "blueV" ? "#83c9f0" : "#d7dddf";
-  context.font = "700 20px PhiHybrid, sans-serif";
-  context.fillText(`#${index + 1}`, x + 13, y + 119);
-  context.font = "600 18px PhiHybrid, sans-serif";
-  context.fillText(`${entry.singleRks.toFixed(4)} RKS`, x + 70, y + 119);
-  context.fillStyle = "#aab5b9";
   context.font = "11px PhiHybrid, sans-serif";
-  context.fillText(rankLabel[rank], x + 13, y + 136);
+  context.fillText(`${entry.chart.difficulty.toUpperCase()} · ${entry.chart.constant?.toFixed(1) ?? "—"}`, x + 110, y + 69);
+  context.fillStyle = "#f5f6f1";
+  context.font = "700 17px PhiHybrid, sans-serif";
+  context.fillText(number.format(entry.record.score), x + 110, y + 91);
+  context.fillStyle = "#b9c7ca";
+  context.font = "600 14px PhiHybrid, sans-serif";
+  context.fillText(`ACC ${entry.accuracy.toFixed(2)}%`, x + 110, y + 111);
+  if (rankArt) context.drawImage(rankArt, x + 244, y + 91, 37, 38);
+  context.fillStyle = rank === "phi" ? "#f0c965" : rank === "blueV" ? "#83c9f0" : "#d7dddf";
+  context.font = "700 17px PhiHybrid, sans-serif";
+  context.fillText(`#${index + 1}`, x + 13, y + 129);
+  context.font = "700 16px PhiHybrid, sans-serif";
+  context.fillText(`贡献 RKS ${entry.singleRks.toFixed(4)}`, x + 60, y + 129);
   context.restore();
 };
 
@@ -142,17 +172,11 @@ async function paintB30(canvas: HTMLCanvasElement, model: B30Model, profile: Pro
   context.fillText("单曲 RKS 按公开社区公式计算；B30 结果以当前曲库与云档字段为准。", 38, 1161);
 }
 
-export default function B30Generator({ charts, records, profile, fetchedAt, onLoaded }: Props) {
+export default function B30Generator({ charts, records, profile, fetchedAt, cloud, onLoaded, onAccountChange }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const renderVersion = useRef(0);
-  const controller = useRef<AbortController | null>(null);
   const model = useMemo(() => buildB30Model(charts, records), [charts, records]);
   const [status, setStatus] = useState<"idle" | "loading" | "ready">("idle");
-  const [token, setToken] = useState("");
-  const [isGlobal, setIsGlobal] = useState(false);
-  const [connecting, setConnecting] = useState(false);
-  const [message, setMessage] = useState("");
-  useEffect(() => () => controller.current?.abort(), []);
 
   useEffect(() => {
     if (!model.selectedEntries.length || !canvasRef.current) {
@@ -182,31 +206,9 @@ export default function B30Generator({ charts, records, profile, fetchedAt, onLo
     }, "image/png");
   };
 
-  const connect = async () => {
-    controller.current?.abort();
-    const nextController = new AbortController();
-    controller.current = nextController;
-    setConnecting(true);
-    setMessage("");
-    try {
-      const data = await fetchPhigrosCloudSave(token, isGlobal, charts, nextController.signal);
-      onLoaded(data);
-      setMessage(`已读取 ${data.records.length} 条成绩；token 仅在本页内存中使用。`);
-      setToken("");
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") return;
-      setMessage(error instanceof Error ? error.message : "获取 TapTap 云存档失败");
-    } finally {
-      if (controller.current === nextController) {
-        controller.current = null;
-        setConnecting(false);
-      }
-    }
-  };
-
   return <main className="feature-page b30-page">
     <header className="feature-heading"><div><small>B30 / BEST 30 IMAGE</small><h1>在线生成 B30 图片</h1><p>使用当前页面内存中的 TapTap 云档，直接在浏览器绘制成绩图并下载 PNG。</p></div><span className="feature-mark">30</span></header>
-    <section className="b30-connect"><div><strong>{records.length ? "更新 B30 数据" : "输入 sessionToken 生成 B30"}</strong><small>请求直接发送到 PhiHub API；token 不会写入 PhiTarget 存储。</small></div><div className="b30-connect-grid"><label>sessionToken<input type="password" autoComplete="off" spellCheck={false} value={token} onChange={(event) => setToken(event.target.value)} placeholder="25 位字母数字字符串" /></label><label>服务器<select value={isGlobal ? "global" : "cn"} onChange={(event) => setIsGlobal(event.target.value === "global")}><option value="cn">国服</option><option value="global">国际服</option></select></label><button type="button" className="primary-action" disabled={connecting || !token.trim()} onClick={() => void connect()}>{connecting ? "读取中…" : "读取云档"}</button></div>{message && <p>{message}</p>}</section>
+    <section className="b30-connect"><div><strong>{records.length ? "更新 B30 数据" : "输入 sessionToken 生成 B30"}</strong><small>玩家数据页与本页使用同一个当前账号；可选保存多个账号并切换。</small></div><CloudAccountPanel charts={charts} cloud={cloud} onLoaded={onLoaded} onAccountChange={onAccountChange} compact /></section>
     {!records.length ? <section className="b30-empty"><strong>还没有可用的云档成绩</strong><p>输入 sessionToken 后，PhiTarget 会在当前浏览器内计算单曲 RKS、φ3 + B27，并生成可下载的 B30 图片。</p></section> : <>
       <section className="b30-summary"><div><strong>{model.selectedEntries.length}</strong><small>已纳入成绩</small></div><div><strong>{model.b30Rks === null ? "—" : model.b30Rks.toFixed(4)}</strong><small>B30 RKS</small></div><div><strong>{profile?.rks === null || profile?.rks === undefined ? "—" : profile.rks.toFixed(4)}</strong><small>云档 RKS</small></div><div><strong>{model.overflowEntries.length}</strong><small>Overflow</small></div></section>
       <section className="b30-toolbar"><div><strong>{model.complete ? "B30 数据完整" : `当前只有 ${model.selectedEntries.length}/30 张可计算成绩`}</strong><small>{model.missingAccuracy ? `${model.missingAccuracy} 张成绩缺少 ACC，未计入 RKS。` : "φ3 + B27 · 当前曲库版本"}</small></div><button type="button" className="primary-action" disabled={status !== "ready"} onClick={download}>{status === "loading" ? "图片生成中…" : "下载 PNG"}</button></section>

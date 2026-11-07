@@ -10,7 +10,7 @@ PhiTarget 适合把“目标分数、课题总分和可达性”做深，再补�
 
 [phib19.top 的社区 API 说明](https://github.com/DeepSeek-V4-Pro/phigros-b30-plugin/blob/main/README.md) 显示，公开接口覆盖云存档读取、排行榜、RKS 排名、谱面平均 ACC、谱面标签、社区评论、公告和服务状态。曲目相关接口对 song ID 后缀和难度参数有特定约定，接口版本和 CORS 行为都可能变化。
 
-[Kyou 的 Phigros 页面](https://kyou.net.cn/phigros) 更接近交互式网页：有 TapTap 扫码绑定、成绩缓存、RKS/B30 展示、单曲和谱面浏览、推分区、标签及评论等页面。它的账号和缓存模型适合参考交互流程，PhiTarget 仍应保持 sessionToken 只在当前页面内存使用的隐私边界。
+[Kyou 的 Phigros 页面](https://kyou.net.cn/phigros) 更接近交互式网页：有 TapTap 扫码绑定、成绩缓存、RKS/B30 展示、单曲和谱面浏览、推分区、标签及评论等页面。它的账号和缓存模型适合参考交互流程；PhiTarget 默认只在当前页面内存使用 sessionToken，用户主动选择本机保存时才写入浏览器 localStorage。
 
 [phigros.tools](https://phigros.tools/) 还展示了 QR 登录、sessionToken、TapTap 云档、Android USB 和本地存档导入等入口。这些功能能提升便利性，但 USB、本地加密存档和 OAuth 都会显著扩大浏览器权限与维护范围。
 
@@ -33,7 +33,7 @@ PhiTarget 适合把“目标分数、课题总分和可达性”做深，再补�
 
 ## B30 图片是否可做
 
-可以做，而且适合纯静态网页。当前流程已经能从浏览器向 PhiHub 读取云档，曲库也有定数、曲绘和难度信息。实现路径可以是：
+可以做，而且适合纯静态网页。当前版本已经能从浏览器向 PhiHub 读取云档，玩家数据页与 B30 页共享当前账号，也支持用户主动保存多个本机账号；曲库有定数、曲绘和难度信息。实现路径是：
 
 ```text
 sessionToken
@@ -58,7 +58,7 @@ sessionToken
 
 ## 设计边界
 
-- 不把 sessionToken 写入 URL、localStorage、IndexedDB、日志或 PhiTarget 服务器。
+- 不把 sessionToken 写入 URL、IndexedDB、日志或 PhiTarget 服务器；仅在用户主动保存账号时写入当前浏览器 localStorage，并提供账号移除入口。
 - 不把云档成绩上传到自己的后端；需要历史比较时让用户主动导入脱敏快照，或明确开启本机存储。
 - 不直接移植 GPL 插件代码，不打包第三方曲绘、字体和模板；图片生成器使用自己的 HTML/Canvas 布局。
 - 社区标签、评论和平均 ACC 要显示来源、更新时间和“社区信息”标记。

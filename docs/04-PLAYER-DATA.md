@@ -2,7 +2,7 @@
 
 ## 设计原则
 
-玩家成绩来自其 Phigros `sessionToken` 绑定的 TapTap 云存档。PhiTarget 只在当前页面内存中使用 token 和映射后的成绩，不把它们写入 URL、localStorage、IndexedDB、日志、分析服务或自己的服务器。刷新页面后需要重新连接。
+玩家成绩来自其 Phigros `sessionToken` 绑定的 TapTap 云存档。PhiTarget 默认只在当前页面内存中使用 token 和映射后的成绩；用户主动保存账号时，当前浏览器 localStorage 只保存 token、服务器和账号名称，不保存成绩快照，不写入 URL、IndexedDB、日志、分析服务或自己的服务器。
 
 这条链路依赖 PhiHub/phi-plugin 提供的公开跨域接口，接口或 CORS 策略变化时，页面应明确显示连接错误；不能把它伪装成 PhiTarget 自有的官方接口。
 
@@ -38,7 +38,7 @@ type PhigrosCloudProfile = {
 2. 浏览器直接 POST 到 `https://phib19.top:8080/get/cloud/saves`，请求体只包含 token 和区域标记。
 3. `src/core/phigrosCloud.ts` 解析 `saveInfo` 与 `gameRecord`，按当前曲库的 `songId + difficulty` 映射到已知谱面。
 4. App 将记录放入 React state，课题三曲组合页可用它搜索三张已有成绩的组合，B30 页面可用它计算单曲 RKS 和 φ3 + B27。
-5. 用户刷新或关闭页面后，内存中的 token 和成绩一起清除。
+5. 未保存账号时，用户刷新或关闭页面后，内存中的 token 和成绩一起清除；保存的账号只用于重新填充 token，成绩仍不会写入 localStorage。
 
 ## 安全边界
 

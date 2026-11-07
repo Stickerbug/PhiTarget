@@ -1,7 +1,7 @@
-import { Fragment, useDeferredValue, useEffect, useMemo, useState } from "react";
+import { Fragment, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { solveFcTarget, solveNormalTarget, solveNormalUnrestrictedTarget } from "./core/solver";
-import { analyzeReachableScores, nearestReachableScores, type ReachabilityMode } from "./core/reachable";
+import { nearestReachableScores, type ReachableScoreAnalysis, type ReachabilityMode } from "./core/reachable";
 import type { ChartConstraintProfile, ChartDataset, ChartRecord } from "./data/types";
 import { chapterArtworkFor } from "./data/chapterArtwork";
 import ChallengePlanner from "./components/ChallengePlanner";
@@ -10,6 +10,7 @@ import PlayerProfile from "./components/PlayerProfile";
 import B30Generator from "./components/B30Generator";
 import type { PhigrosCloudData, PhigrosCloudRecord } from "./core/phigrosCloud";
 import { rankForScore, rankLabel, type ScoreRank } from "./core/ranks";
+import { useCloudAccounts } from "./hooks/useCloudAccounts";
 
 const number = new Intl.NumberFormat("en-US");
 const difficultyOrder = ["ez", "hd", "in", "at"];
@@ -95,6 +96,11 @@ export default function App() {
   const [playerRecords, setPlayerRecords] = useState<PhigrosCloudRecord[]>([]);
   const [playerProfile, setPlayerProfile] = useState<PhigrosCloudData["profile"] | null>(null);
   const [playerFetchedAt, setPlayerFetchedAt] = useState<string | null>(null);
+  const cloud = useCloudAccounts();
+  const reachabilityWorker = useRef<Worker | null>(null);
+  const reachabilityRequest = useRef(0);
+  const [reachableState, setReachableState] = useState<{ analysis: ReachableScoreAnalysis | null; error: string }>({ analysis: null, error: "" });
+  const [reachableBusy, setReachableBusy] = useState(false);
 
   useEffect(() => { import("./data/dataset").then((module) => { setDataset(module.dataset); setConstraintMap(module.chartConstraints); }); }, []);
   const charts = dataset?.charts ?? [];
@@ -105,15 +111,26 @@ export default function App() {
     const known = new Set(charts.map((chart) => chart.chapter));
     return [...chapterOrder.filter((name) => known.has(name)), ...[...known].filter((name) => !chapterOrder.includes(name))];
   }, [charts]);
-  const chapterCards = useMemo(() => chapters.map((name) => ({ name, chart: charts.find((chart) => chart.chapter === name) })).filter((item): item is { name: string; chart: ChartRecord } => Boolean(item.chart)), [chapters, charts]);
+  const firstChartByChapter = useMemo(() => {
+    const map = new Map<string, ChartRecord>();
+    for (const chart of charts) if (!map.has(chart.chapter)) map.set(chart.chapter, chart);
+    return map;
+  }, [charts]);
+  const chapterCards = useMemo(() => chapters.map((name) => ({ name, chart: firstChartByChapter.get(name) })).filter((item): item is { name: string; chart: ChartRecord } => Boolean(item.chart)), [chapters, firstChartByChapter]);
+  const chartSearchIndex = useMemo(() => new Map(charts.map((chart) => [chart.chartId, normalizeSearch((songMeta[chart.songId]?.searchKeywords ?? [chart.title, chart.composer, chart.illustrator, chart.charter]).join(" "))])), [charts, songMeta]);
   const filtered = useMemo(() => charts.filter((chart) => {
-    const searchable = normalizeSearch((songMeta[chart.songId]?.searchKeywords ?? [chart.title, chart.composer, chart.illustrator, chart.charter]).join(" "));
+    const searchable = chartSearchIndex.get(chart.chartId) ?? "";
     return (!normalizedQuery || searchable.includes(normalizedQuery)) && (chapter === "all" || chart.chapter === chapter);
-  }), [chapter, charts, normalizedQuery, songMeta]);
+  }), [chapter, chartSearchIndex, charts, normalizedQuery]);
   const songRows = useMemo(() => {
     const groups = new Map<string, ChartRecord[]>();
-    for (const chart of filtered) groups.set(chart.songId, [...(groups.get(chart.songId) ?? []), chart]);
+    for (const chart of filtered) {
+      const group = groups.get(chart.songId);
+      if (group) group.push(chart);
+      else groups.set(chart.songId, [chart]);
+    }
     const rows = [...groups.values()];
+    const constants = new Map(rows.map((row) => [row[0].songId, row.find((chart) => chart.difficulty === selectedDifficulty)?.constant ?? 0]));
     rows.sort((a, b) => {
       let result = 0;
       const aOrder = songMeta[a[0].songId]?.songOrder ?? Number.MAX_SAFE_INTEGER;
@@ -121,8 +138,8 @@ export default function App() {
       if (sortMode === "default") result = (aOrder - bOrder) || a[0].title.localeCompare(b[0].title);
       else if (sortMode === "title") result = a[0].title.localeCompare(b[0].title) || (aOrder - bOrder);
       else {
-        const aConstant = a.find((chart) => chart.difficulty === selectedDifficulty)?.constant ?? 0;
-        const bConstant = b.find((chart) => chart.difficulty === selectedDifficulty)?.constant ?? 0;
+        const aConstant = constants.get(a[0].songId) ?? 0;
+        const bConstant = constants.get(b[0].songId) ?? 0;
         result = (aConstant - bConstant) || a[0].title.localeCompare(b[0].title);
       }
       return sortDirection === "asc" ? result : -result;
@@ -133,7 +150,6 @@ export default function App() {
   const selectedSongCharts = useMemo(() => selected ? charts.filter((chart) => chart.songId === selected.songId).sort((a, b) => difficultyOrder.indexOf(a.difficulty) - difficultyOrder.indexOf(b.difficulty)) : [], [charts, selected]);
   const notes = selected?.noteCount ?? 1000;
   const goodCap = selected && selected.noteCounts.tap !== null && selected.noteCounts.hold !== null ? Math.min(notes, selected.noteCounts.tap + selected.noteCounts.hold) : notes;
-  const goodCapKnown = Boolean(selected && selected.noteCounts.tap !== null && selected.noteCounts.hold !== null);
   const effectiveCombo = scoreMode === "fc" ? notes : Math.min(maxCombo, notes);
   const state = useMemo(() => {
     try {
@@ -142,14 +158,44 @@ export default function App() {
     } catch (error) { return { solutions: [], error: error instanceof Error ? error.message : "Invalid input" }; }
   }, [effectiveCombo, goodCap, match, notes, scoreMode, target]);
   const solutionRank = (solution: (typeof state.solutions)[number]) => rankForScore(Number(solution.result.display), "badMiss" in solution ? solution.badMiss === 0 && solution.maxCombo === notes : solution.maxCombo === notes);
-  const reachableState = useMemo(() => {
-    if (!dataset || !selected) return { analysis: null, error: "" };
+  useEffect(() => {
+    if (!dataset) return;
     try {
-      return { analysis: analyzeReachableScores(notes, reachabilityMode, reachabilityMode === "fixedCombo" ? reachabilityCombo : null, goodCap), error: "" };
-    } catch (error) {
-      return { analysis: null, error: error instanceof Error ? error.message : "无法计算可达分数" };
+      const worker = new Worker(new URL("./workers/calculation.worker.ts", import.meta.url), { type: "module" });
+      reachabilityWorker.current = worker;
+      worker.postMessage({ type: "init", charts });
+      worker.onmessage = (event: MessageEvent<{ id: number; type: "reachable"; analysis: ReachableScoreAnalysis | null; error: string }>) => {
+        if (event.data.type !== "reachable" || event.data.id !== reachabilityRequest.current) return;
+        setReachableState({ analysis: event.data.analysis, error: event.data.error });
+        setReachableBusy(false);
+      };
+      worker.onerror = () => {
+        setReachableState({ analysis: null, error: "可达分数后台计算线程启动失败，请刷新页面重试。" });
+        setReachableBusy(false);
+      };
+      return () => {
+        worker.terminate();
+        reachabilityWorker.current = null;
+      };
+    } catch {
+      setReachableState({ analysis: null, error: "当前浏览器不支持后台计算线程。" });
+      setReachableBusy(false);
+      return undefined;
     }
-  }, [dataset, goodCap, notes, reachabilityCombo, reachabilityMode, selected]);
+  }, [dataset]);
+  useEffect(() => {
+    if (!dataset || !selected || !reachabilityWorker.current) return;
+    const id = ++reachabilityRequest.current;
+    setReachableBusy(true);
+    reachabilityWorker.current.postMessage({
+      id,
+      type: "reachable",
+      notes,
+      mode: reachabilityMode,
+      maxCombo: reachabilityMode === "fixedCombo" ? reachabilityCombo : null,
+      goodCap,
+    });
+  }, [dataset, goodCap, notes, reachabilityCombo, reachabilityMode, selected?.chartId]);
   const reachableNearby = useMemo(() => reachableState.analysis ? nearestReachableScores(reachableState.analysis.scores, target) : [], [reachableState.analysis, target]);
   const selectedArt = selected ? assetUrl(selected.songId, "illustration") : "";
   const selectedBlur = selected ? assetUrl(selected.songId, "illustrationBlur") : "";
@@ -161,12 +207,22 @@ export default function App() {
   const structuralConflictLabel = selectedConstraint ? selectedConstraint.crossTypeConflictGroupCount > 0 ? `发现 ${number.format(selectedConstraint.crossTypeConflictGroupCount)} 组跨类型同触点音符` : "未发现跨类型同触点音符" : "未载入结构摘要";
   const cycleSort = () => setSortMode((current) => sortModes[(sortModes.indexOf(current) + 1) % sortModes.length]);
   const toggleDirection = () => setSortDirection((current) => current === "asc" ? "desc" : "asc");
+  const clearCloudData = () => {
+    setPlayerRecords([]);
+    setPlayerProfile(null);
+    setPlayerFetchedAt(null);
+  };
+  const handleCloudLoaded = (data: PhigrosCloudData) => {
+    setPlayerRecords(data.records);
+    setPlayerProfile(data.profile);
+    setPlayerFetchedAt(data.fetchedAt);
+  };
 
   if (!dataset) return <main className="loading-screen"><span className="loading-mark">Φ</span><p>正在读取曲库索引…</p></main>;
 
   return <main className="app-shell">
     <nav className="app-nav" aria-label="PhiTarget 页面"><button type="button" className={view === "library" ? "active" : ""} onClick={() => setView("library")}><span>曲库</span><small>目标分数</small></button><button type="button" className={view === "challengeScore" ? "active" : ""} onClick={() => setView("challengeScore")}><span>课题分反推</span><small>单曲目标</small></button><button type="button" className={view === "challengePlanner" ? "active" : ""} onClick={() => setView("challengePlanner")}><span>课题三曲</span><small>目标总分</small></button><button type="button" className={view === "profile" ? "active" : ""} onClick={() => setView("profile")}><span>玩家数据</span><small>TapTap 云档</small></button><button type="button" className={view === "b30" ? "active" : ""} onClick={() => setView("b30")}><span>B30 图片</span><small>浏览器生成</small></button></nav>
-    {view === "challengeScore" ? <ChallengeScoreReverse charts={charts} /> : view === "challengePlanner" ? <ChallengePlanner charts={charts} playerRecords={playerRecords} playerRks={playerProfile?.rks ?? null} /> : view === "profile" ? <PlayerProfile charts={charts} records={playerRecords} profile={playerProfile} fetchedAt={playerFetchedAt} onLoaded={(data) => { setPlayerRecords(data.records); setPlayerProfile(data.profile); setPlayerFetchedAt(data.fetchedAt); }} /> : view === "b30" ? <B30Generator charts={charts} records={playerRecords} profile={playerProfile} fetchedAt={playerFetchedAt} onLoaded={(data) => { setPlayerRecords(data.records); setPlayerProfile(data.profile); setPlayerFetchedAt(data.fetchedAt); }} /> : <>
+    {view === "challengeScore" ? <ChallengeScoreReverse charts={charts} /> : view === "challengePlanner" ? <ChallengePlanner charts={charts} playerRecords={playerRecords} playerRks={playerProfile?.rks ?? null} /> : view === "profile" ? <PlayerProfile charts={charts} records={playerRecords} profile={playerProfile} fetchedAt={playerFetchedAt} cloud={cloud} onLoaded={handleCloudLoaded} onAccountChange={clearCloudData} /> : view === "b30" ? <B30Generator charts={charts} records={playerRecords} profile={playerProfile} fetchedAt={playerFetchedAt} cloud={cloud} onLoaded={handleCloudLoaded} onAccountChange={clearCloudData} /> : <>
     <section className="game-screen" style={chapterArt ? { "--selected-art": `url(${chapterArt})` } as CSSProperties : undefined}>
       <div className="network-lines" />
       <header className="game-header"><div className="game-header-title"><small><ChapterText value={chapterOuterLabel} /></small><strong><ChapterText value={chapterLabel} /></strong></div><div className="player-chip"><span className="player-level">40</span></div></header>
@@ -199,7 +255,7 @@ export default function App() {
       </div>
     </section>
     <section className="calculator-panel"><div className="calculator-heading"><h2>目标分数反推</h2><span>{number.format(songRows.length)} 首歌曲</span></div><div className="solver-controls"><label>计分约束<select value={scoreMode} onChange={(event) => setScoreMode(event.target.value as typeof scoreMode)}><option value="normal">普通模式 / 不限制 FC</option><option value="fc">FC / 无 Bad · Miss</option><option value="combo">指定 Max Combo / 合并 Bad + Miss</option></select></label><label>目标分数<input type="number" min="0" max="1000000" value={target} onChange={(event) => setTarget(Number(event.target.value))} /></label>{scoreMode === "combo" && <label>Max Combo<input type="number" min="0" max={notes} value={maxCombo} onChange={(event) => setMaxCombo(Number(event.target.value))} /></label>}<label>求解方式<select value={match} onChange={(event) => setMatch(event.target.value as typeof match)}><option value="nearest">最接近目标</option><option value="exact">精确命中</option><option value="atLeast">至少达到</option></select></label></div><p className="formula-line">N = {number.format(notes)} · {scoreMode === "normal" ? "普通模式 · 不限制 FC" : scoreMode === "fc" ? "FC 模式" : `固定 Max Combo = ${number.format(effectiveCombo)}`} · Bad + Miss 按同一分值误差组计算，且会打断 Combo</p>{state.error ? <p className="error">{state.error}</p> : <div className="solutions">{state.solutions.map((solution) => { const rank = solutionRank(solution); return <div className="solution" key={`${solution.good}-${solution.maxCombo}-${solution.result.display}-${"badMiss" in solution ? solution.badMiss : 0}`}><div><strong>{formatScore(solution.result.display)}</strong><small>P {solution.perfect} · G {solution.good} · {"badMiss" in solution ? `B + M ${solution.badMiss}` : "B 0 · M 0"} · C {solution.maxCombo}</small></div><span className="solution-rank"><img src={rankAssets[rank]} alt={rankLabel[rank]} /><small>{rankLabel[rank]} · {"badMiss" in solution ? (solution.badMiss === 0 && solution.maxCombo === notes ? "FC" : "普通") : "FC"}</small></span><b className={solution.delta === 0 ? "exact" : "delta"}>{solution.delta > 0 ? "+" : ""}{formatScore(solution.delta)}</b></div>; })}</div>}</section>
-    <section className="calculator-panel reachable-panel"><div className="calculator-heading"><h2>可达分数</h2><span>公式 + 结构参考</span></div><div className="solver-controls reachable-controls"><label>计算模型<select value={reachabilityMode} onChange={(event) => setReachabilityMode(event.target.value as ReachabilityMode)}><option value="normal">普通模式 / 不限制 FC</option><option value="fc">FC</option><option value="fixedCombo">固定 Max Combo</option></select></label>{reachabilityMode === "fixedCombo" && <label>Max Combo<input type="number" min="0" max={notes} value={Math.min(reachabilityCombo, notes)} onChange={(event) => setReachabilityCombo(Number(event.target.value))} /></label>}<label>目标附近分数<input type="number" min="0" max="1000000" value={target} onChange={(event) => setTarget(Number(event.target.value))} /></label></div>{reachableState.error ? <p className="error">{reachableState.error}</p> : reachableState.analysis && <><div className="reachable-summary"><div><strong>{number.format(reachableState.analysis.total)}</strong><small>不同可达分数</small></div><div><strong>{number.format(reachableState.analysis.min)}</strong><small>最低</small></div><div><strong>{number.format(reachableState.analysis.max)}</strong><small>最高</small></div></div><div className="reachable-nearby"><small>目标 {number.format(target)} 附近</small><div>{reachableNearby.map((scoreValue) => <span key={scoreValue} className={scoreValue === target ? "exact" : ""}>{number.format(scoreValue)}</span>)}</div></div><div className="reachable-buckets"><small>分数分布（每 5,000 分）</small><div>{reachableState.analysis.buckets.map((bucket) => <span key={bucket.start}>{number.format(bucket.start)}–{number.format(bucket.end)} <b>{number.format(bucket.count)}</b></span>)}</div></div><p className="reachable-note">Good 上限为 {number.format(reachableState.analysis.goodCap)}（Tap + Hold）；Flick/Drag 没有 Good；Bad/Miss 会打断 Combo，理论范围为 ceil((P + G) / (B + M + 1)) ≤ C ≤ P + G。{selectedConstraint ? `本谱面已离线检查 ${number.format(selectedConstraint.crossTypeConflictGroupCount)} 组跨类型同触点音符；` : "当前没有结构摘要；"}本计算不保证每个分数在真实谱面中都能打出。</p></>}</section>
+    <section className="calculator-panel reachable-panel"><div className="calculator-heading"><h2>可达分数</h2><span>公式 + 结构参考</span></div><div className="solver-controls reachable-controls"><label>计算模型<select value={reachabilityMode} onChange={(event) => setReachabilityMode(event.target.value as ReachabilityMode)}><option value="normal">普通模式 / 不限制 FC</option><option value="fc">FC</option><option value="fixedCombo">固定 Max Combo</option></select></label>{reachabilityMode === "fixedCombo" && <label>Max Combo<input type="number" min="0" max={notes} value={Math.min(reachabilityCombo, notes)} onChange={(event) => setReachabilityCombo(Number(event.target.value))} /></label>}<label>目标附近分数<input type="number" min="0" max="1000000" value={target} onChange={(event) => setTarget(Number(event.target.value))} /></label></div>{reachableBusy ? <p className="reachable-note">正在后台计算可达分数…</p> : reachableState.error ? <p className="error">{reachableState.error}</p> : reachableState.analysis && <><div className="reachable-summary"><div><strong>{number.format(reachableState.analysis.total)}</strong><small>不同可达分数</small></div><div><strong>{number.format(reachableState.analysis.min)}</strong><small>最低</small></div><div><strong>{number.format(reachableState.analysis.max)}</strong><small>最高</small></div></div><div className="reachable-nearby"><small>目标 {number.format(target)} 附近</small><div>{reachableNearby.map((scoreValue) => <span key={scoreValue} className={scoreValue === target ? "exact" : ""}>{number.format(scoreValue)}</span>)}</div></div><div className="reachable-buckets"><small>分数分布（每 5,000 分）</small><div>{reachableState.analysis.buckets.map((bucket) => <span key={bucket.start}>{number.format(bucket.start)}–{number.format(bucket.end)} <b>{number.format(bucket.count)}</b></span>)}</div></div><p className="reachable-note">Good 上限为 {number.format(reachableState.analysis.goodCap)}（Tap + Hold）；Flick/Drag 没有 Good；Bad/Miss 会打断 Combo，理论范围为 ceil((P + G) / (B + M + 1)) ≤ C ≤ P + G。{selectedConstraint ? `本谱面已离线检查 ${number.format(selectedConstraint.crossTypeConflictGroupCount)} 组跨类型同触点音符；` : "当前没有结构摘要；"}本计算不保证每个分数在真实谱面中都能打出。</p></>}</section>
     </>}
   </main>;
 }
