@@ -23,6 +23,8 @@ export type PhigrosCloudProfile = {
   challengeModeRank: number | null;
   updatedAt: string | null;
   avatar: string | null;
+  data: string | null;
+  gameVersion: string | null;
 };
 
 export type PhigrosCloudData = {
@@ -42,6 +44,16 @@ const asBoolean = (value: unknown) => value === true || value === 1 || value ===
 
 const text = (value: unknown) => typeof value === "string" ? value : "";
 
+const formatGameData = (value: unknown) => {
+  if (!Array.isArray(value)) return null;
+  const units = ["KiB", "MiB", "GiB", "TiB", "PiB"];
+  const parts = value.map((item, index) => {
+    const amount = Number(item);
+    return Number.isFinite(amount) && amount > 0 && units[index] ? `${amount}${units[index]}` : "";
+  }).filter(Boolean);
+  return parts.length ? parts.reverse().join(" ") : null;
+};
+
 function normalizePayload(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object") return {};
   const root = value as Record<string, unknown>;
@@ -58,6 +70,8 @@ export function parsePhigrosCloudSave(value: unknown, charts: ChartRecord[], fet
   const saveInfo = payload.saveInfo && typeof payload.saveInfo === "object" ? payload.saveInfo as Record<string, unknown> : {};
   const summary = saveInfo.summary && typeof saveInfo.summary === "object" ? saveInfo.summary as Record<string, unknown> : {};
   const modifiedAt = saveInfo.modifiedAt && typeof saveInfo.modifiedAt === "object" ? saveInfo.modifiedAt as Record<string, unknown> : {};
+  const gameUser = payload.gameuser && typeof payload.gameuser === "object" ? payload.gameuser as Record<string, unknown> : {};
+  const gameProgress = payload.gameProgress && typeof payload.gameProgress === "object" ? payload.gameProgress as Record<string, unknown> : {};
   const chartBySongDifficulty = new Map(charts.map((chart) => [`${chart.songId}:${chart.difficulty}`, chart]));
   const recordsByChart = new Map<string, PhigrosCloudRecord>();
   for (const [rawSongId, rawLevels] of Object.entries(gameRecord)) {
@@ -93,11 +107,13 @@ export function parsePhigrosCloudSave(value: unknown, charts: ChartRecord[], fet
     records,
     profile: {
       playerId: text(saveInfo.PlayerId),
-      playerName: text(saveInfo.PlayerName) || text(saveInfo.playerName) || text(saveInfo.nickname) || text(summary.name) || text(summary.nickname),
+      playerName: text(saveInfo.PlayerName) || text(saveInfo.playerName) || text(saveInfo.nickname) || text(summary.name) || text(summary.nickname) || text(gameUser.PlayerId),
       rks: asNumber(summary.rankingScore),
       challengeModeRank: asNumber(summary.challengeModeRank),
       updatedAt: text(summary.updatedAt) || text(modifiedAt.iso) || null,
-      avatar: text(summary.avatar) || null,
+      avatar: text(summary.avatar) || text(gameUser.avatar) || null,
+      data: formatGameData(gameProgress.money),
+      gameVersion: text(summary.gameVersion) || null,
     },
     fetchedAt,
   };

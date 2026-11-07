@@ -9,6 +9,10 @@ import type { CloudAccountsController } from "../hooks/useCloudAccounts";
 const number = new Intl.NumberFormat("en-US");
 const resourceCdn = "https://cdn.jsdelivr.net/gh/7aGiven/Phigros_Resource";
 const artUrl = (songId: string, blur = false) => `${resourceCdn}@${blur ? "illustrationBlur" : "illustrationLowRes"}/${encodeURIComponent(songId)}.png`;
+const rawResource = "https://raw.githubusercontent.com/7aGiven/Phigros_Resource";
+const rawArtUrl = (songId: string, branch: "illustrationLowRes" | "illustration" | "illustrationBlur") => `${rawResource}/${branch}/${encodeURIComponent(songId)}.png`;
+const avatarUrl = (avatar: string) => `${resourceCdn}@avatar/${encodeURIComponent(avatar)}.png`;
+const rawAvatarUrl = (avatar: string) => `${rawResource}/avatar/${encodeURIComponent(avatar)}.png`;
 const rankAssets: Record<ScoreRank, string> = {
   F: "/assets/ranks/F.png",
   C: "/assets/ranks/C.png",
@@ -21,9 +25,9 @@ const rankAssets: Record<ScoreRank, string> = {
 };
 const difficultyNames: Record<string, string> = { ez: "EZ", hd: "HD", in: "IN", at: "AT" };
 const difficultyColors: Record<string, { badge: string; panel: string; glow: string }> = {
-  ez: { badge: "#92d050", panel: "rgba(0,183,240,.25)", glow: "#a7d65b" },
-  hd: { badge: "#00b0f0", panel: "rgba(0,183,240,.3)", glow: "#61d8ff" },
-  in: { badge: "#ff0000", panel: "rgba(0,183,240,.3)", glow: "#ff6969" },
+  ez: { badge: "#92d050", panel: "rgba(0,183,240,.38)", glow: "#a7d65b" },
+  hd: { badge: "#00b0f0", panel: "rgba(0,183,240,.38)", glow: "#61d8ff" },
+  in: { badge: "#ff0000", panel: "rgba(0,183,240,.38)", glow: "#ff6969" },
   at: { badge: "#6e6e6e", panel: "rgba(240,0,0,.3)", glow: "#fff700" },
 };
 const canvasWidth = 1200;
@@ -33,6 +37,8 @@ const cardHeight = 100;
 const rowHeight = 122;
 const sideMargin = 28;
 const columnGap = 30;
+const analysisHeight = 380;
+const footerHeight = 125;
 
  type Props = {
   charts: ChartRecord[];
@@ -52,13 +58,32 @@ const loadImage = (source: string) => {
   if (cached) return cached;
   const pending = new Promise<HTMLImageElement | null>((resolve) => {
     const image = new Image();
-    image.crossOrigin = "anonymous";
+    if (/^https?:\/\//.test(source)) image.crossOrigin = "anonymous";
     image.onload = () => resolve(image);
     image.onerror = () => resolve(null);
     image.src = source;
   });
   imageCache.set(source, pending);
   return pending;
+};
+
+const loadFirstImage = async (sources: string[]) => {
+  for (const source of sources) {
+    const image = await loadImage(source);
+    if (image) return image;
+  }
+  return null;
+};
+
+const loadArtwork = (songId: string, blur = false) => {
+  if (blur) return loadFirstImage([artUrl(songId, true), rawArtUrl(songId, "illustrationBlur"), artUrl(songId), rawArtUrl(songId, "illustration")]);
+  return loadFirstImage([artUrl(songId), rawArtUrl(songId, "illustrationLowRes"), `${resourceCdn}@illustration/${encodeURIComponent(songId)}.png`, rawArtUrl(songId, "illustration")]);
+};
+
+const loadAvatar = (avatar: string | null) => {
+  if (!avatar) return Promise.resolve<HTMLImageElement | null>(null);
+  if (/^https?:\/\//.test(avatar)) return loadFirstImage([avatar]);
+  return loadFirstImage([avatarUrl(avatar), rawAvatarUrl(avatar)]);
 };
 
 const clipBox = (context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, slope = 0.3) => {
@@ -122,6 +147,17 @@ const drawRankIcon = (context: CanvasRenderingContext2D, image: HTMLImageElement
   context.drawImage(image, x + (size - image.width * scale) / 2, y + (size - image.height * scale) / 2, image.width * scale, image.height * scale);
 };
 
+const drawRankFallback = (context: CanvasRenderingContext2D, rank: ScoreRank, x: number, y: number) => {
+  const label = rank === "phi" ? "Φ" : rank === "blueV" ? "V" : rank;
+  context.save();
+  context.fillStyle = rank === "phi" ? "#fff24a" : rank === "blueV" ? "#37c5ff" : "#fff";
+  context.font = `700 ${rank === "phi" ? 38 : 32}px PhiHybrid, sans-serif`;
+  context.shadowColor = context.fillStyle;
+  context.shadowBlur = 8;
+  context.fillText(label, x, y);
+  context.restore();
+};
+
 const buildStats = (charts: ChartRecord[], records: PhigrosCloudRecord[]): Stat[] => {
   const byDifficulty = new Map<string, PhigrosCloudRecord[]>();
   records.forEach((record) => {
@@ -148,7 +184,113 @@ const formatDate = (value: string | null) => {
   return date.toISOString().replace("T", " ").replace(/\.\d{3}Z$/, " UTC");
 };
 
-const visibleEntriesFor = (model: B30Model) => [...model.selectedEntries, ...model.overflowEntries.slice(0, 3)];
+const visibleEntriesFor = (model: B30Model) => [...model.selectedEntries, ...model.overflowEntries.slice(0, 6)];
+
+const drawFlowSeparator = (context: CanvasRenderingContext2D, y: number, label: string) => {
+  const widths = [178, 92, 46, 24, 13];
+  const gap = 6;
+  let left = 46;
+  widths.forEach((width) => {
+    fillClipBox(context, left, y, width, 12, "rgba(255,255,255,.94)", 0.25);
+    left += width + gap;
+  });
+  let right = canvasWidth - 46;
+  [...widths].reverse().forEach((width) => {
+    right -= width;
+    fillClipBox(context, right, y, width, 12, "rgba(255,255,255,.94)", 0.25);
+    right -= gap;
+  });
+  context.fillStyle = "#fff";
+  context.font = "italic 600 20px PhiHybrid, sans-serif";
+  context.textAlign = "center";
+  context.fillText(label, canvasWidth / 2, y + 12);
+  context.textAlign = "left";
+};
+
+const paintAnalysis = (context: CanvasRenderingContext2D, y: number, model: B30Model, stats: Stat[]) => {
+  drawFlowSeparator(context, y, "B30 数据分析");
+  const panelY = y + 36;
+  const panelHeight = 285;
+  const panelWidth = 510;
+  const panelLeft = 66;
+  const panelRight = 624;
+  fillClipBox(context, panelLeft, panelY, panelWidth, panelHeight, "rgba(0,0,0,.67)", 0.3);
+  fillClipBox(context, panelRight, panelY, panelWidth, panelHeight, "rgba(0,0,0,.67)", 0.3);
+  context.fillStyle = "#00b7f0";
+  context.font = "12px PhiHybrid, sans-serif";
+  context.fillText("CHART PROFILE", panelLeft + 28, panelY + 30);
+  context.fillStyle = "#fff";
+  context.font = "26px PhiHybrid, sans-serif";
+  context.fillText("谱面实力分析", panelLeft + 28, panelY + 62);
+  context.strokeStyle = "rgba(255,255,255,.28)";
+  context.beginPath();
+  context.moveTo(panelLeft + 28, panelY + 78);
+  context.lineTo(panelLeft + panelWidth - 28, panelY + 78);
+  context.stroke();
+  context.fillStyle = "#fff";
+  context.font = "600 14px PhiHybrid, sans-serif";
+  context.fillText("成绩统计", panelLeft + 30, panelY + 108);
+  stats.forEach((stat, index) => {
+    const rowY = panelY + 137 + index * 31;
+    const x = panelLeft + 34;
+    context.fillStyle = "rgba(255,255,255,.8)";
+    context.font = "12px PhiHybrid, sans-serif";
+    context.fillText(stat.title, x, rowY);
+    context.fillStyle = "#00b7f0";
+    context.fillRect(x + 44, rowY - 10, Math.min(270, stat.tot ? stat.cleared / stat.tot * 270 : 0), 8);
+    context.fillStyle = "#fff";
+    context.font = "11px PhiHybrid, sans-serif";
+    context.fillText(`C ${stat.cleared} · FC ${stat.fc} · Phi ${stat.phi}`, x + 324, rowY);
+  });
+  context.fillStyle = "rgba(255,255,255,.65)";
+  context.font = "11px PhiHybrid, sans-serif";
+  context.fillText(`${model.selectedEntries.length} 个有效槽位 · φ3 + B27`, panelLeft + 30, panelY + 257);
+
+  context.fillStyle = "#00b7f0";
+  context.font = "12px PhiHybrid, sans-serif";
+  context.fillText("RKS DISTRIBUTION", panelRight + 28, panelY + 30);
+  context.fillStyle = "#fff";
+  context.font = "26px PhiHybrid, sans-serif";
+  context.fillText("等效 RKS 直方图", panelRight + 28, panelY + 62);
+  const values = model.selectedEntries.map((entry) => entry.singleRks);
+  const max = Math.max(...values, 1);
+  const min = Math.min(...values, 0);
+  const average = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+  context.fillStyle = "rgba(255,255,255,.78)";
+  context.font = "12px PhiHybrid, sans-serif";
+  context.fillText(`平均 RKS  ${average.toFixed(4)}`, panelRight + panelWidth - 170, panelY + 32);
+  context.strokeStyle = "rgba(255,255,255,.28)";
+  context.beginPath();
+  context.moveTo(panelRight + 28, panelY + 78);
+  context.lineTo(panelRight + panelWidth - 28, panelY + 78);
+  context.stroke();
+  const plotX = panelRight + 46;
+  const plotY = panelY + 105;
+  const plotW = panelWidth - 70;
+  const plotH = 132;
+  context.strokeStyle = "rgba(255,255,255,.18)";
+  for (let i = 0; i <= 4; i += 1) {
+    const gridY = plotY + plotH - i * plotH / 4;
+    context.beginPath();
+    context.moveTo(plotX, gridY);
+    context.lineTo(plotX + plotW, gridY);
+    context.stroke();
+  }
+  const barGap = 3;
+  const barW = values.length ? Math.max(3, (plotW - barGap * (values.length - 1)) / values.length) : 8;
+  values.forEach((value, index) => {
+    const height = max === min ? plotH : Math.max(3, (value - min) / (max - min) * plotH);
+    context.fillStyle = index < 3 ? "#fff" : "#00b7f0";
+    context.fillRect(plotX + index * (barW + barGap), plotY + plotH - height, barW, height);
+  });
+  context.fillStyle = "rgba(255,255,255,.65)";
+  context.font = "10px PhiHybrid, sans-serif";
+  context.fillText(`${min.toFixed(2)}`, plotX, plotY + plotH + 18);
+  context.fillText(`${max.toFixed(2)}`, plotX, plotY - 7);
+  context.fillText("P1-P3", panelRight + 35, panelY + 263);
+  context.fillStyle = "#00b7f0";
+  context.fillText("B1-B27", panelRight + 102, panelY + 263);
+};
 
 const paintCard = (context: CanvasRenderingContext2D, entry: RksEntry, index: number, phiCount: number, isOverflow: boolean, art: HTMLImageElement | null, rankArt: HTMLImageElement | null) => {
   const column = index % 3;
@@ -156,7 +298,7 @@ const paintCard = (context: CanvasRenderingContext2D, entry: RksEntry, index: nu
   const x = sideMargin + column * (cardWidth + columnGap);
   const y = headerHeight + row * rowHeight;
   const rank = rankForScore(entry.record.score, entry.record.fc);
-  const kind = !isOverflow && index < phiCount ? `P${index + 1}` : `#${isOverflow ? index - 29 : index - phiCount + 1}`;
+  const kind = !isOverflow && index < phiCount ? `P${index + 1}` : `#${isOverflow ? index - 2 : index - phiCount + 1}`;
   const colors = difficultyColors[entry.chart.difficulty] ?? difficultyColors.at;
   const selectedGlow = !isOverflow && index < 30;
 
@@ -175,7 +317,7 @@ const paintCard = (context: CanvasRenderingContext2D, entry: RksEntry, index: nu
   const panelX = x + 152;
   const panelY = y + 5;
   fillClipBox(context, panelX, panelY, 195, 90, colors.panel, 0.3);
-  context.strokeStyle = colors.badge;
+  context.strokeStyle = entry.chart.difficulty === "at" ? "#ff0000" : "#00b7f0";
   context.lineWidth = 2;
   context.beginPath();
   context.moveTo(panelX + 193, panelY + 2);
@@ -212,7 +354,8 @@ const paintCard = (context: CanvasRenderingContext2D, entry: RksEntry, index: nu
   context.fillStyle = "rgba(255,255,255,.8)";
   context.font = "500 10px PhiHybrid, sans-serif";
   context.fillText(`RKS ${entry.singleRks.toFixed(4)}`, panelX + 54, panelY + 89);
-  drawRankIcon(context, rankArt, panelX + 7, panelY + 32, 36);
+  if (rankArt) drawRankIcon(context, rankArt, panelX + 7, panelY + 32, 43);
+  else drawRankFallback(context, rank, panelX + 10, panelY + 67);
   context.restore();
 };
 
@@ -220,14 +363,15 @@ async function paintB30(canvas: HTMLCanvasElement, model: B30Model, profile: Pro
   const context = canvas.getContext("2d");
   if (!context) return;
   const visibleEntries = visibleEntriesFor(model);
-  const arts = await Promise.all(visibleEntries.map((entry) => loadImage(artUrl(entry.chart.songId))));
+  const arts = await Promise.all(visibleEntries.map((entry) => loadArtwork(entry.chart.songId)));
   const rankArts = await Promise.all(visibleEntries.map((entry) => loadImage(rankAssets[rankForScore(entry.record.score, entry.record.fc)])));
-  const backgroundArt = await loadImage(visibleEntries[0] ? artUrl(visibleEntries[0].chart.songId, true) : "");
-  const avatar = profile?.avatar && /^https?:\/\//.test(profile.avatar) ? await loadImage(profile.avatar) : null;
+  const backgroundArt = visibleEntries[0] ? await loadArtwork(visibleEntries[0].chart.songId, true) : null;
+  const avatar = await loadAvatar(profile?.avatar ?? null);
   if (cancelled()) return;
 
   const rows = Math.max(1, Math.ceil(visibleEntries.length / 3));
-  const canvasHeight = headerHeight + rows * rowHeight + 118;
+  const analysisY = headerHeight + rows * rowHeight + 18;
+  const canvasHeight = analysisY + analysisHeight + footerHeight;
   context.clearRect(0, 0, canvas.width, canvas.height);
   context.fillStyle = "#11151c";
   context.fillRect(0, 0, canvasWidth, canvasHeight);
@@ -260,10 +404,28 @@ async function paintB30(canvas: HTMLCanvasElement, model: B30Model, profile: Pro
   const challenge = profile?.challengeModeRank == null ? "—" : String(profile.challengeModeRank % 100 || Math.floor(profile.challengeModeRank / 100));
   context.fillStyle = "#fff";
   context.font = "500 16px PhiHybrid, sans-serif";
-  context.fillText(`Challenge ${challenge}`, 474, 77);
+  fillClipBox(context, 474, 47, 58, 38, "rgba(255,255,255,.96)", 0.3);
+  context.fillStyle = "#11171a";
+  context.font = "700 22px PhiHybrid, sans-serif";
+  drawCentered(context, challenge, 474, 73, 58);
+  context.fillStyle = "#fff";
+  context.font = "500 15px PhiHybrid, sans-serif";
+  context.fillText("Challenge", 548, 71);
   context.fillStyle = "rgba(255,255,255,.76)";
   context.font = "12px PhiHybrid, sans-serif";
   context.fillText(formatDate(profile?.updatedAt || fetchedAt), 180, 98);
+  if (profile?.data) {
+    fillClipBox(context, 58, 117, 192, 24, "rgba(0,0,0,.62)", 0.3);
+    context.fillStyle = "rgba(255,255,255,.86)";
+    context.font = "11px PhiHybrid, sans-serif";
+    context.fillText(profile.data, 74, 133);
+  }
+  if (profile?.gameVersion) {
+    fillClipBox(context, 490, 116, 126, 22, "rgba(255,170,100,.8)", 0.3);
+    context.fillStyle = "#1a1512";
+    context.font = "600 10px PhiHybrid, sans-serif";
+    context.fillText(`${profile.gameVersion} current`, 505, 131);
+  }
 
   const stats = buildStats(charts, records);
   fillClipBox(context, 844, 25, 296, 112, "rgba(0,0,0,.58)", 0.3);
@@ -299,21 +461,20 @@ async function paintB30(canvas: HTMLCanvasElement, model: B30Model, profile: Pro
   visibleEntries.forEach((entry, index) => paintCard(context, entry, index, model.phiEntries.length, index >= model.selectedEntries.length, arts[index], rankArts[index]));
   if (visibleEntries.length > model.selectedEntries.length) {
     const separatorY = headerHeight + Math.ceil(model.selectedEntries.length / 3) * rowHeight - 14;
-    context.strokeStyle = "rgba(255,255,255,.85)";
-    context.beginPath();
-    context.moveTo(80, separatorY);
-    context.lineTo(canvasWidth - 80, separatorY);
-    context.stroke();
-    context.fillStyle = "#fff";
-    context.font = "600 15px PhiHybrid, sans-serif";
-    drawCentered(context, "OVER FLOW", 460, separatorY + 5, 280);
+    drawFlowSeparator(context, separatorY, "OVER FLOW");
   }
+  paintAnalysis(context, analysisY, model, stats);
   context.fillStyle = "rgba(255,255,255,.78)";
-  context.font = "18px PhiHybrid, sans-serif";
+  context.font = "24px PhiHybrid, sans-serif";
   context.textAlign = "center";
-  context.fillText("PhiTarget", canvasWidth / 2, canvasHeight - 48);
-  context.font = "10px PhiHybrid, sans-serif";
-  context.fillText("B30 · browser generated", canvasWidth / 2, canvasHeight - 29);
+  context.shadowColor = "#00baff";
+  context.shadowBlur = 12;
+  context.fillText("PhiTarget", canvasWidth / 2, canvasHeight - 58);
+  context.shadowBlur = 0;
+  context.font = "11px PhiHybrid, sans-serif";
+  context.fillText("B30 · browser generated", canvasWidth / 2, canvasHeight - 38);
+  context.font = "9px PhiHybrid, sans-serif";
+  context.fillText("*PhiTarget is an unofficial Phigros companion tool.", canvasWidth / 2, canvasHeight - 18);
   context.textAlign = "left";
 }
 
@@ -322,7 +483,7 @@ export default function B30Generator({ charts, records, profile, fetchedAt, clou
   const renderVersion = useRef(0);
   const model = useMemo(() => buildB30Model(charts, records), [charts, records]);
   const visibleEntries = useMemo(() => visibleEntriesFor(model), [model]);
-  const canvasHeight = headerHeight + Math.max(1, Math.ceil(visibleEntries.length / 3)) * rowHeight + 118;
+  const canvasHeight = headerHeight + Math.max(1, Math.ceil(visibleEntries.length / 3)) * rowHeight + 18 + analysisHeight + footerHeight;
   const [status, setStatus] = useState<"idle" | "loading" | "ready">("idle");
 
   useEffect(() => {
