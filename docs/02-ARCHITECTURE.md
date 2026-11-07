@@ -9,7 +9,7 @@ TypeScript + Vite；React（若已有仓库则沿用）；Web Worker；Vitest；
 ## 模块边界
 ```text
 src/
-  pages/ target-score/ challenge-planner/ reachable-scores/ player-profile/ settings/
+  pages/ target-score/ challenge-combinations/ reachable-scores/ player-profile/ settings/
   components/ chart-card/ score-breakdown/ badge-selector/ plan-card/ filter-panel/ score-bucket-chart/
   core/ scoring/ normal-solver/ challenge-solver/ reachable-scores/ challenge-combinations/ personal-model/
   data/ schemas/ loaders/ versions/
@@ -25,7 +25,7 @@ flowchart TD
  A["静态站点 / PWA"] --> B["UI"]
  B --> C["应用服务层"]
  C --> D["计分引擎"]
- C --> E["课题规划器"]
+ C --> E["课题三曲组合器"]
  C --> F["可达分数分析器"]
  G["charts.json / rules.json"] --> D
  G --> E

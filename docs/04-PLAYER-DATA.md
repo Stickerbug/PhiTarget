@@ -37,7 +37,7 @@ type PhigrosCloudProfile = {
 1. 用户在玩家数据页面输入 sessionToken，并选择国服或国际服。
 2. 浏览器直接 POST 到 `https://phib19.top:8080/get/cloud/saves`，请求体只包含 token 和区域标记。
 3. `src/core/phigrosCloud.ts` 解析 `saveInfo` 与 `gameRecord`，按当前曲库的 `songId + difficulty` 映射到已知谱面。
-4. App 将记录放入 React state，课题规划器用它进行个人最佳分数缺口排序。
+4. App 将记录放入 React state，课题三曲组合页可用它搜索三张已有成绩的组合。
 5. 用户刷新或关闭页面后，内存中的 token 和成绩一起清除。
 
 ## 安全边界
