@@ -39,6 +39,8 @@ const sideMargin = 28;
 const columnGap = 30;
 const analysisHeight = 380;
 const footerHeight = 125;
+const imageTimeoutMs = 1800;
+const imageConcurrency = 8;
 
  type Props = {
   charts: ChartRecord[];
@@ -54,20 +56,34 @@ type Stat = { title: string; tot: number; cleared: number; fc: number; phi: numb
 
 const imageCache = new Map<string, Promise<HTMLImageElement | null>>();
 const loadImage = (source: string) => {
+  if (!source) return Promise.resolve<HTMLImageElement | null>(null);
   const cached = imageCache.get(source);
   if (cached) return cached;
   const pending = new Promise<HTMLImageElement | null>((resolve) => {
     const image = new Image();
     if (/^https?:\/\//.test(source)) image.crossOrigin = "anonymous";
-    image.onload = () => resolve(image);
-    image.onerror = () => resolve(null);
+    let settled = false;
+    const finish = (value: HTMLImageElement | null) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      image.onload = null;
+      image.onerror = null;
+      resolve(value);
+    };
+    const timer = setTimeout(() => {
+      image.src = "";
+      finish(null);
+    }, imageTimeoutMs);
+    image.onload = () => finish(image);
+    image.onerror = () => finish(null);
     image.src = source;
   });
   imageCache.set(source, pending);
   return pending;
 };
 
-const loadFirstImage = async (sources: string[]) => {
+const loadFirstImage = async (sources: string[]): Promise<HTMLImageElement | null> => {
   for (const source of sources) {
     const image = await loadImage(source);
     if (image) return image;
@@ -75,16 +91,39 @@ const loadFirstImage = async (sources: string[]) => {
   return null;
 };
 
-const loadArtwork = (songId: string, blur = false) => {
-  if (blur) return loadFirstImage([artUrl(songId, true), rawArtUrl(songId, "illustrationBlur"), artUrl(songId), rawArtUrl(songId, "illustration")]);
-  return loadFirstImage([artUrl(songId), rawArtUrl(songId, "illustrationLowRes"), `${resourceCdn}@illustration/${encodeURIComponent(songId)}.png`, rawArtUrl(songId, "illustration")]);
+const loadAnyImage = async (preferred: string[], fallback: string[]): Promise<HTMLImageElement | null> => {
+  const attempts = preferred.map((source) => loadImage(source).then((image) => image ?? Promise.reject(new Error("image unavailable"))));
+  try {
+    return await Promise.any(attempts);
+  } catch {
+    return fallback.length ? loadAnyImage(fallback, []) : null;
+  }
 };
 
-const loadAvatar = (avatar: string | null) => {
+const loadArtwork = (songId: string, blur = false): Promise<HTMLImageElement | null> => {
+  if (blur) return loadAnyImage([artUrl(songId, true), rawArtUrl(songId, "illustrationBlur")], [artUrl(songId), rawArtUrl(songId, "illustration")]);
+  return loadAnyImage([artUrl(songId), rawArtUrl(songId, "illustrationLowRes")], [`${resourceCdn}@illustration/${encodeURIComponent(songId)}.png`, rawArtUrl(songId, "illustration")]);
+};
+
+const loadAvatar = (avatar: string | null): Promise<HTMLImageElement | null> => {
   if (!avatar) return Promise.resolve<HTMLImageElement | null>(null);
   if (/^https?:\/\//.test(avatar)) return loadFirstImage([avatar]);
-  return loadFirstImage([avatarUrl(avatar), rawAvatarUrl(avatar)]);
+  return loadAnyImage([avatarUrl(avatar), rawAvatarUrl(avatar)], []);
 };
+
+async function mapConcurrent<T, R>(items: T[], limit: number, mapper: (item: T, index: number) => Promise<R>) {
+  const result = new Array<R>(items.length);
+  let cursor = 0;
+  const worker = async () => {
+    while (cursor < items.length) {
+      const index = cursor;
+      cursor += 1;
+      result[index] = await mapper(items[index], index);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, () => worker()));
+  return result;
+}
 
 const clipBox = (context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, slope = 0.3) => {
   const offset = height * slope;
@@ -359,14 +398,29 @@ const paintCard = (context: CanvasRenderingContext2D, entry: RksEntry, index: nu
   context.restore();
 };
 
-async function paintB30(canvas: HTMLCanvasElement, model: B30Model, profile: Props["profile"], fetchedAt: string | null, charts: ChartRecord[], records: PhigrosCloudRecord[], cancelled: () => boolean) {
+async function paintB30(canvas: HTMLCanvasElement, model: B30Model, profile: Props["profile"], fetchedAt: string | null, charts: ChartRecord[], records: PhigrosCloudRecord[], cancelled: () => boolean, onProgress?: (done: number, total: number) => void) {
   const context = canvas.getContext("2d");
   if (!context) return;
   const visibleEntries = visibleEntriesFor(model);
-  const arts = await Promise.all(visibleEntries.map((entry) => loadArtwork(entry.chart.songId)));
-  const rankArts = await Promise.all(visibleEntries.map((entry) => loadImage(rankAssets[rankForScore(entry.record.score, entry.record.fc)])));
-  const backgroundArt = visibleEntries[0] ? await loadArtwork(visibleEntries[0].chart.songId, true) : null;
-  const avatar = await loadAvatar(profile?.avatar ?? null);
+  const totalAssets = visibleEntries.length * 2 + (visibleEntries.length ? 1 : 0) + (profile?.avatar ? 1 : 0);
+  let completedAssets = 0;
+  const reportProgress = () => {
+    completedAssets += 1;
+    onProgress?.(completedAssets, totalAssets);
+  };
+  const artsPromise = mapConcurrent(visibleEntries, imageConcurrency, async (entry) => {
+    const image = await loadArtwork(entry.chart.songId);
+    reportProgress();
+    return image;
+  });
+  const rankArtsPromise = mapConcurrent(visibleEntries, imageConcurrency, async (entry) => {
+    const image = await loadImage(rankAssets[rankForScore(entry.record.score, entry.record.fc)]);
+    reportProgress();
+    return image;
+  });
+  const backgroundPromise = visibleEntries[0] ? loadArtwork(visibleEntries[0].chart.songId, true).then((image) => { reportProgress(); return image; }) : Promise.resolve<HTMLImageElement | null>(null);
+  const avatarPromise = profile?.avatar ? loadAvatar(profile.avatar).then((image) => { reportProgress(); return image; }) : Promise.resolve<HTMLImageElement | null>(null);
+  const [arts, rankArts, backgroundArt, avatar] = await Promise.all([artsPromise, rankArtsPromise, backgroundPromise, avatarPromise]);
   if (cancelled()) return;
 
   const rows = Math.max(1, Math.ceil(visibleEntries.length / 3));
@@ -378,7 +432,9 @@ async function paintB30(canvas: HTMLCanvasElement, model: B30Model, profile: Pro
   if (backgroundArt) {
     context.save();
     context.globalAlpha = 0.42;
-    context.filter = "blur(24px) brightness(.48) saturate(.8)";
+    // illustrationBlur is already pre-blurred in the resource repository;
+    // avoid a full-canvas blur pass, which is expensive on mobile GPUs.
+    context.filter = "brightness(.52) saturate(.8)";
     const scale = Math.max(canvasWidth / backgroundArt.width, canvasHeight / backgroundArt.height);
     const bw = backgroundArt.width * scale;
     const bh = backgroundArt.height * scale;
@@ -485,6 +541,7 @@ export default function B30Generator({ charts, records, profile, fetchedAt, clou
   const visibleEntries = useMemo(() => visibleEntriesFor(model), [model]);
   const canvasHeight = headerHeight + Math.max(1, Math.ceil(visibleEntries.length / 3)) * rowHeight + 18 + analysisHeight + footerHeight;
   const [status, setStatus] = useState<"idle" | "loading" | "ready">("idle");
+  const [progress, setProgress] = useState(0);
 
   useEffect(() => {
     if (!model.selectedEntries.length || !canvasRef.current) {
@@ -494,7 +551,10 @@ export default function B30Generator({ charts, records, profile, fetchedAt, clou
     let cancelled = false;
     const version = ++renderVersion.current;
     setStatus("loading");
-    void paintB30(canvasRef.current, model, profile, fetchedAt, charts, records, () => cancelled || renderVersion.current !== version).then(() => {
+    setProgress(0);
+    void paintB30(canvasRef.current, model, profile, fetchedAt, charts, records, () => cancelled || renderVersion.current !== version, (done, total) => {
+      if (!cancelled) setProgress(total ? Math.round(done / total * 100) : 0);
+    }).then(() => {
       if (!cancelled) setStatus("ready");
     });
     return () => { cancelled = true; };
@@ -519,7 +579,7 @@ export default function B30Generator({ charts, records, profile, fetchedAt, clou
     <section className="b30-connect"><div><strong>{records.length ? "更新 B30 数据" : "输入 sessionToken 生成 B30"}</strong><small>玩家数据页与本页使用同一个当前账号；可选保存多个账号并切换。</small></div><CloudAccountPanel charts={charts} cloud={cloud} onLoaded={onLoaded} onAccountChange={onAccountChange} compact /></section>
     {!records.length ? <section className="b30-empty"><strong>还没有可用的云档成绩</strong><p>输入 sessionToken 后，PhiTarget 会在当前浏览器内计算单曲 RKS、φ3 + B27，并生成可下载的 B30 图片。</p></section> : <>
       <section className="b30-summary"><div><strong>{model.selectedEntries.length}</strong><small>已纳入成绩</small></div><div><strong>{model.b30Rks === null ? "—" : model.b30Rks.toFixed(4)}</strong><small>B30 RKS</small></div><div><strong>{profile?.rks === null || profile?.rks === undefined ? "—" : profile.rks.toFixed(4)}</strong><small>云档 RKS</small></div><div><strong>{model.overflowEntries.length}</strong><small>Overflow</small></div></section>
-      <section className="b30-toolbar"><div><strong>{model.complete ? "B30 数据完整" : `当前只有 ${model.selectedEntries.length}/30 张可计算成绩`}</strong><small>{model.missingAccuracy ? `${model.missingAccuracy} 张成绩缺少 ACC，未计入 RKS。` : "φ3 + B27 · 当前曲库版本"}</small></div><button type="button" className="primary-action" disabled={status !== "ready"} onClick={download}>{status === "loading" ? "图片生成中…" : "下载 PNG"}</button></section>
+      <section className="b30-toolbar"><div><strong>{model.complete ? "B30 数据完整" : `当前只有 ${model.selectedEntries.length}/30 张可计算成绩`}</strong><small>{model.missingAccuracy ? `${model.missingAccuracy} 张成绩缺少 ACC，未计入 RKS。` : "φ3 + B27 · 当前曲库版本"}{status === "loading" ? ` · 曲绘加载 ${progress}%` : ""}</small></div><button type="button" className="primary-action" disabled={status !== "ready"} onClick={download}>{status === "loading" ? `图片生成中… ${progress}%` : "下载 PNG"}</button></section>
       <section className="b30-canvas-wrap"><canvas ref={canvasRef} width={canvasWidth} height={canvasHeight} aria-label="PhiTarget B30 成绩图片" /></section>
       <p className="b30-note">B30 排序和图内卡片结构按 PhiPlugin 的标准成绩图实现；单曲 RKS 使用公开社区公式，云档没有 ACC 的成绩不会计入。</p>
     </>}
