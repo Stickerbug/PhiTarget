@@ -43,6 +43,7 @@ export function validateScoreInput(input: ScoreInput): void {
     throw new Error("Perfect + Good + Bad + Miss must equal notes");
   }
   if (input.maxCombo > input.notes) throw new Error("Max Combo cannot exceed notes");
+  if (input.maxCombo > input.perfect + input.good) throw new Error("Max Combo cannot exceed Perfect + Good when Bad/Miss break combo");
 }
 
 function rounded(raw: Rational, mode: RoundingMode): bigint {

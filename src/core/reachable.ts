@@ -34,12 +34,10 @@ const validateNotes = (notes: number) => {
   if (notes > 10000) throw new Error("This reachability view is limited to 10,000 notes for responsiveness");
 };
 
-const mergeIntervals = (values: Set<number>[], notes: number): [number, number][][] => values.map((set) => {
-  const sorted = [...set].sort((a, b) => a - b);
+const mergeIntervals = (values: Array<Array<[number, number]>>): [number, number][][] => values.map((intervals) => {
+  const sorted = [...intervals].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
   const merged: [number, number][] = [];
-  for (const value of sorted) {
-    const start = value - notes;
-    const end = value;
+  for (const [start, end] of sorted) {
     const previous = merged[merged.length - 1];
     if (previous && start <= previous[1] + 1) previous[1] = Math.max(previous[1], end);
     else merged.push([start, end]);
@@ -48,19 +46,23 @@ const mergeIntervals = (values: Set<number>[], notes: number): [number, number][
 });
 
 /**
- * Build the exact theoretical normal-mode K set with 0 <= C <= N and no FC
- * restriction. B and M are grouped because they have the same score weight.
+ * Build the exact theoretical normal-mode K set with 0 <= C <= P + G and no
+ * FC restriction. Bad and Miss break combo; B and M are grouped because they
+ * have the same score weight.
  */
 const normalKIntervals = (notes: number, goodCap: number): [number, number][][] => {
-  const quotientByResidue = Array.from({ length: 20 }, () => new Set<number>());
+  const quotientByResidue = Array.from({ length: 20 }, () => [] as Array<[number, number]>);
   for (let badMiss = 0; badMiss <= notes; badMiss += 1) {
     for (let good = 0; good <= Math.min(goodCap, notes - badMiss); good += 1) {
       const base = 63 * good + 180 * badMiss;
       const residue = ((base % 20) + 20) % 20;
-      quotientByResidue[residue].add((base - residue) / 20);
+      const minK = base - 20 * (notes - badMiss);
+      const minQ = Math.ceil((minK - residue) / 20);
+      const maxQ = Math.floor((base - residue) / 20);
+      if (minQ <= maxQ) quotientByResidue[residue].push([minQ, maxQ]);
     }
   }
-  return mergeIntervals(quotientByResidue, notes);
+  return mergeIntervals(quotientByResidue);
 };
 
 const hasReachableK = (intervals: [number, number][], residue: number, minK: number, maxK: number): boolean => {
@@ -93,7 +95,10 @@ const scoresFromCounts = (notes: number, maxCombo: number | null, goodCap: numbe
   const scores = new Set<number>();
   if (maxCombo === null) return scoresFromNormalIntervals(notes, normalKIntervals(notes, goodCap));
   for (let badMiss = 0; badMiss <= notes; badMiss += 1) {
-    for (let good = 0; good <= Math.min(goodCap, notes - badMiss); good += 1) scores.add(scoreFromCounts(notes, good, badMiss, maxCombo));
+    for (let good = 0; good <= Math.min(goodCap, notes - badMiss); good += 1) {
+      if (maxCombo > notes - badMiss) continue;
+      scores.add(scoreFromCounts(notes, good, badMiss, maxCombo));
+    }
   }
   return [...scores].sort((a, b) => a - b);
 };
