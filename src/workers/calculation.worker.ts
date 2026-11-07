@@ -1,5 +1,7 @@
 import { findChallengeCombinations, type ChallengeCombinationMatch } from "../core/challenge";
 import { analyzeReachableScores, type ReachabilityMode } from "../core/reachable";
+import { findControlPlans, type ControlSearchOptions } from "../core/controlAnalysis";
+import { loadChartTimeline } from "../core/chartTimeline";
 import type { ChartRecord } from "../data/types";
 
 type InitRequest = { type: "init"; charts: ChartRecord[] };
@@ -29,7 +31,14 @@ type ReachableRequest = {
   goodCap: number;
 };
 
-type WorkerRequest = InitRequest | CombinationRequest | ReachableRequest;
+type ControlRequest = {
+  id: number;
+  type: "control";
+  chart: Pick<ChartRecord, "songId" | "difficulty">;
+  options: ControlSearchOptions;
+};
+
+type WorkerRequest = InitRequest | CombinationRequest | ReachableRequest | ControlRequest;
 
 type WorkerScope = {
   onmessage: ((event: MessageEvent<WorkerRequest>) => void) | null;
@@ -39,7 +48,7 @@ type WorkerScope = {
 const scope = self as unknown as WorkerScope;
 let charts: ChartRecord[] = [];
 
-scope.onmessage = (event) => {
+scope.onmessage = async (event) => {
   const request = event.data;
   if (request.type === "init") {
     charts = request.charts;
@@ -52,6 +61,10 @@ scope.onmessage = (event) => {
         personalBest: new Map(request.options.personalBest),
       });
       scope.postMessage({ id: request.id, type: request.type, plans, error: "" });
+    } else if (request.type === "control") {
+      const timeline = await loadChartTimeline(request.chart);
+      const plans = findControlPlans(timeline, request.options);
+      scope.postMessage({ id: request.id, type: request.type, plans, timeline: { noteCount: timeline.events.length, bpm: timeline.bpm, durationMs: timeline.durationMs, hasLineTransforms: timeline.hasLineTransforms }, error: "" });
     } else {
       const analysis = analyzeReachableScores(request.notes, request.mode, request.maxCombo, request.goodCap);
       scope.postMessage({ id: request.id, type: request.type, analysis, error: "" });
