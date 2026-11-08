@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import html2canvas from "html2canvas";
+import { toBlob } from "html-to-image";
 import type { ChartRecord } from "../data/types";
 import { buildB30Model, type B30Model, type RksEntry } from "../core/rks";
 import { rankForScore, type ScoreRank } from "../core/ranks";
@@ -204,9 +204,10 @@ function B30Card({ entry, index, selectedCount, art, average }: { entry: RksEntr
   const label = isOverflow ? `#${index - selectedCount + 28}` : index < 3 ? `P${index + 1}` : `#${index - 2}`;
   const title = entry.chart.title;
   const remoteSources = art && art !== placeholderArt ? [art, ...artworkSources(entry.chart.songId, "illustrationLowRes")] : artworkSources(entry.chart.songId, "illustrationLowRes");
+  const longTitle = title.length >= 25;
   return <article className={`song ${index < 3 ? "phi_song" : "b_song"}`}>
     <div className="ill-box"><div className="num clip-box"><p>{label}</p></div><div className="ill clip-box"><SourceImage sources={remoteSources} alt={title} crossOrigin="anonymous" /></div><div className={`rank-${difficulty.toUpperCase()} clip-box`}><div className="org"><p>{difficultyName}&ensp;{entry.chart.constant?.toFixed(1) ?? "—"}</p></div><div className="rel"><p>{entry.singleRks.toFixed(2)}</p></div></div></div>
-    <div className={`info-${difficulty.toUpperCase()}`}><div className="songname"><p title={title}>{title}</p></div><div className="songinfo"><div className="Rating"><img src={rankAssets[rank]} alt={rank} /></div><div className="chengji"><div className="score"><p>{number.format(entry.record.score)}</p></div><div className="line" /><div className="acc-box"><div className="acc"><p>{entry.accuracy.toFixed(2)}%</p></div>{average !== undefined && <div className="suggest suggest-kind-2"><div className="suggest-tip" /><p>● {average.toFixed(2)}%</p></div>}</div></div></div></div>
+    <div className={`info-${difficulty.toUpperCase()}`}><div className={`songname${longTitle ? " long-title" : ""}`}><p title={title}>{title}</p></div><div className="songinfo"><div className="Rating"><img src={rankAssets[rank]} alt={rank} /></div><div className="chengji"><div className="score"><p>{number.format(entry.record.score)}</p></div><div className="line" /><div className="acc-box"><div className="acc"><p>{entry.accuracy.toFixed(2)}%</p></div>{average !== undefined && <div className="suggest suggest-kind-2"><div className="suggest-tip" /><p>● {average.toFixed(2)}%</p></div>}</div></div></div></div>
     {average !== undefined && <RankAverage average={average} accuracy={entry.accuracy} />}
   </article>;
 }
@@ -234,6 +235,7 @@ export default function B30Generator({ charts, records, profile, fetchedAt, clou
   const histogram = useMemo(() => buildRksHistogram(getB30AnalysisRecords(model)), [model]);
   const [status, setStatus] = useState<"idle" | "loading" | "ready">("idle");
   const [progress, setProgress] = useState(0);
+  const [exporting, setExporting] = useState(false);
   const [tagAnalysis, setTagAnalysis] = useState<B30TagAnalysis | null>(null);
   const [averages, setAverages] = useState<B30AverageMap>(() => new Map());
   const [assets, setAssets] = useState<AssetState>({ arts: [], ranks: [], avatar: placeholderAvatar, background: placeholderArt });
@@ -265,6 +267,8 @@ export default function B30Generator({ charts, records, profile, fetchedAt, clou
       if (document.fonts?.load) {
         await Promise.allSettled([
           document.fonts.load('16px "PhiHybrid"'),
+        document.fonts.load('16px "PhiHybridCondensed"'),
+        document.fonts.load('16px "SairaExtraCondensed"'),
           document.fonts.load('16px "PHI"'),
           document.fonts.load('16px "Aldrich"'),
         ]);
@@ -279,11 +283,31 @@ export default function B30Generator({ charts, records, profile, fetchedAt, clou
   }, [visibleEntries, profile?.avatar]);
 
   const download = async () => {
-    if (!artRef.current || status !== "ready") return;
-    const canvas = await html2canvas(artRef.current, { scale: 1, useCORS: true, allowTaint: false, backgroundColor: null, logging: false, imageTimeout: 7000, width: 1200, windowWidth: 1200 });
-    canvas.toBlob((blob) => { if (!blob) return; const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = "phitarget-b30.png"; link.click(); window.setTimeout(() => URL.revokeObjectURL(url), 1000); }, "image/png");
+    if (!artRef.current || status !== "ready" || exporting) return;
+    setExporting(true);
+    try {
+      const blob = await toBlob(artRef.current, {
+        width: 1200,
+        pixelRatio: 1,
+        cacheBust: false,
+        backgroundColor: "transparent",
+        imagePlaceholder: placeholderArt,
+        preferredFontFormat: "truetype",
+      });
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "phitarget-b30.png";
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      console.error("B30 image export failed", error);
+    } finally {
+      setExporting(false);
+    }
   };
 
   const backgroundSources = [assets.background || placeholderArt, ...(visibleEntries[9] ? artworkSources(visibleEntries[9].chart.songId, "illustrationBlur") : [])];
-  return <main className="feature-page b30-page"><header className="feature-heading"><div><small>B30 / BEST 30 IMAGE</small><h1>在线生成 B30 图片</h1><p>直接使用 PhiPlugin b19 的固定 1200px DOM/CSS 布局、官方判定图标和 φ3 + B27 顺序生成 PNG。</p></div><span className="feature-mark">30</span></header><section className="b30-connect"><div><strong>{records.length ? "更新 B30 数据" : "输入 sessionToken 生成 B30"}</strong><small>玩家数据页与本页使用同一个当前账号；可选保存多个账号并切换。</small></div><CloudAccountPanel charts={charts} cloud={cloud} onLoaded={onLoaded} onAccountChange={onAccountChange} compact /></section>{!records.length ? <section className="b30-empty"><strong>还没有可用的云档成绩</strong><p>输入 sessionToken 后，PhiTarget 会在当前浏览器内计算单曲 RKS、φ3 + B27，并生成可下载的 B30 图片。</p></section> : <><section className="b30-summary"><div><strong>{model.selectedEntries.length}</strong><small>已纳入成绩</small></div><div><strong>{model.b30Rks === null ? "—" : model.b30Rks.toFixed(4)}</strong><small>B30 RKS</small></div><div><strong>{profile?.rks == null ? "—" : profile.rks.toFixed(4)}</strong><small>云档 RKS</small></div><div><strong>{model.overflowEntries.length}</strong><small>Overflow</small></div></section><section className="b30-toolbar"><div><strong>{model.complete ? "B30 数据完整" : `当前只有 ${model.selectedEntries.length}/30 张可计算成绩`}</strong><small>{model.missingAccuracy ? `${model.missingAccuracy} 张成绩缺少 ACC，未计入 RKS。` : "φ3 + B27 · PhiPlugin b19 原始布局"}{status === "loading" ? ` · 曲绘加载 ${progress}%` : ""}</small></div><button type="button" className="primary-action" disabled={status !== "ready"} onClick={() => void download()}>{status === "loading" ? `图片生成中… ${progress}%` : "下载 PNG"}</button></section><section className="b30-render-wrap"><div ref={artRef} className="b30-art" aria-label="PhiTarget B30 成绩图片"><div className="background"><SourceImage sources={backgroundSources} alt="" crossOrigin="anonymous" /></div><div className="b30-content"><Header profile={profile} fetchedAt={fetchedAt} charts={charts} records={records} avatar={assets.avatar} /><div className="b19">{visibleEntries.slice(0, model.selectedEntries.length).map((entry, index) => <B30Card key={`${entry.record.id}-${index}`} entry={entry} index={index} selectedCount={model.selectedEntries.length} art={assets.arts[index] ?? placeholderArt} average={averages.get(averageKey(entry))} />)}{visibleEntries.length > model.selectedEntries.length && <FlowSeparator label="OVER FLOW" />}{visibleEntries.slice(model.selectedEntries.length).map((entry, offset) => <B30Card key={`${entry.record.id}-overflow-${offset}`} entry={entry} index={model.selectedEntries.length + offset} selectedCount={model.selectedEntries.length} art={assets.arts[model.selectedEntries.length + offset] ?? placeholderArt} average={averages.get(averageKey(entry))} />)}</div><Analysis model={model} tagAnalysis={tagAnalysis} histogram={histogram} /><div className="createdbox"><div className="phi-plugin"><p>Phi-Plugin</p></div><div className="ver"><p>v1.0.3</p></div></div><div className="copyright"><p>*Phi-Plugin不是Phigros官方项目，与南京鸽游网络有限公司及Phigros官方不存在授权、合作或运营关系。</p></div></div></div></section><p className="b30-note">卡片布局、官方等级图片、OVER FLOW 和 Kyou 标签分析直接采用 PhiPlugin b19 模板的结构；社区接口不可用时仅隐藏标签结果，不影响成绩图生成。</p></>}</main>;
+  return <main className="feature-page b30-page"><header className="feature-heading"><div><small>B30 / BEST 30 IMAGE</small><h1>在线生成 B30 图片</h1><p>直接使用 PhiPlugin b19 的固定 1200px DOM/CSS 布局、官方判定图标和 φ3 + B27 顺序生成 PNG。</p></div><span className="feature-mark">30</span></header><section className="b30-connect"><div><strong>{records.length ? "更新 B30 数据" : "输入 sessionToken 生成 B30"}</strong><small>玩家数据页与本页使用同一个当前账号；可选保存多个账号并切换。</small></div><CloudAccountPanel charts={charts} cloud={cloud} onLoaded={onLoaded} onAccountChange={onAccountChange} compact /></section>{!records.length ? <section className="b30-empty"><strong>还没有可用的云档成绩</strong><p>输入 sessionToken 后，PhiTarget 会在当前浏览器内计算单曲 RKS、φ3 + B27，并生成可下载的 B30 图片。</p></section> : <><section className="b30-summary"><div><strong>{model.selectedEntries.length}</strong><small>已纳入成绩</small></div><div><strong>{model.b30Rks === null ? "—" : model.b30Rks.toFixed(4)}</strong><small>B30 RKS</small></div><div><strong>{profile?.rks == null ? "—" : profile.rks.toFixed(4)}</strong><small>云档 RKS</small></div><div><strong>{model.overflowEntries.length}</strong><small>Overflow</small></div></section><section className="b30-toolbar"><div><strong>{model.complete ? "B30 数据完整" : `当前只有 ${model.selectedEntries.length}/30 张可计算成绩`}</strong><small>{model.missingAccuracy ? `${model.missingAccuracy} 张成绩缺少 ACC，未计入 RKS。` : "φ3 + B27 · PhiPlugin b19 原始布局"}{status === "loading" ? ` · 曲绘加载 ${progress}%` : ""}</small></div><button type="button" className="primary-action" disabled={status !== "ready" || exporting} onClick={() => void download()}>{status === "loading" ? `图片生成中… ${progress}%` : exporting ? "正在导出…" : "下载 PNG"}</button></section><section className="b30-render-wrap"><div ref={artRef} className="b30-art" aria-label="PhiTarget B30 成绩图片"><div className="background"><SourceImage sources={backgroundSources} alt="" crossOrigin="anonymous" /></div><div className="b30-content"><Header profile={profile} fetchedAt={fetchedAt} charts={charts} records={records} avatar={assets.avatar} /><div className="b19">{visibleEntries.slice(0, model.selectedEntries.length).map((entry, index) => <B30Card key={`${entry.record.id}-${index}`} entry={entry} index={index} selectedCount={model.selectedEntries.length} art={assets.arts[index] ?? placeholderArt} average={averages.get(averageKey(entry))} />)}{visibleEntries.length > model.selectedEntries.length && <FlowSeparator label="OVER FLOW" />}{visibleEntries.slice(model.selectedEntries.length).map((entry, offset) => <B30Card key={`${entry.record.id}-overflow-${offset}`} entry={entry} index={model.selectedEntries.length + offset} selectedCount={model.selectedEntries.length} art={assets.arts[model.selectedEntries.length + offset] ?? placeholderArt} average={averages.get(averageKey(entry))} />)}</div><Analysis model={model} tagAnalysis={tagAnalysis} histogram={histogram} /><div className="createdbox"><div className="phi-plugin"><p>Phi-Plugin</p></div><div className="ver"><p>v1.0.3</p></div></div><div className="copyright"><p>*Phi-Plugin不是Phigros官方项目，与南京鸽游网络有限公司及Phigros官方不存在授权、合作或运营关系。</p></div></div></div></section><p className="b30-note">卡片布局、官方等级图片、OVER FLOW 和 Kyou 标签分析直接采用 PhiPlugin b19 模板的结构；社区接口不可用时仅隐藏标签结果，不影响成绩图生成。</p></>}</main>;
 }

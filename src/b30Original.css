@@ -1,7 +1,9 @@
 /* Adapted from PhiPlugin resources/html/b19/b19.css. The .b30-art scope keeps the exact layout isolated from the application UI. */
 @font-face{font-family:"PHI";src:url("/assets/fonts/phi.ttf") format("truetype");font-display:block;font-weight:100 900;font-style:normal;}
-@font-face{font-family:"Aldrich";src:url("/assets/fonts/phi.ttf") format("truetype");font-display:block;font-weight:100 900;font-style:normal;}
-.b30-art{--clipSlope:.3;--phi-theme-AT:#6e6e6e;--phi-theme-IN:#ff0000;--phi-theme-HD:#00b0f0;--phi-theme-EZ:#92d050;--AT:#6e6e6e;--IN:#ff0000;--HD:#00b0f0;--EZ:#92d050;--tap:skyblue;--drag:gold;--hold:#29b0e6;--flick:pink;box-sizing:border-box;width:1200px;position:relative;overflow:hidden;display:block;font-family:"PhiHybrid","Noto Sans SC","Microsoft YaHei",sans-serif;color:#fff;background:#131719;line-height:normal;}
+@font-face{font-family:"Aldrich";src:url("/assets/fonts/Aldrich-Regular.ttf") format("truetype");font-display:block;font-weight:400;font-style:normal;}
+@font-face{font-family:"PhiHybridCondensed";src:url("/assets/fonts/phi-condensed-medium.ttf") format("truetype");font-display:block;font-weight:500;font-style:normal;}
+@font-face{font-family:"SairaExtraCondensed";src:url("/assets/fonts/saira-extra-condensed.ttf") format("truetype");font-display:block;font-weight:400;font-style:normal;}
+.b30-art{--clipSlope:.3;--phi-theme-AT:#6e6e6e;--phi-theme-IN:#ff0000;--phi-theme-HD:#00b0f0;--phi-theme-EZ:#92d050;--AT:#6e6e6e;--IN:#ff0000;--HD:#00b0f0;--EZ:#92d050;--tap:skyblue;--drag:gold;--hold:#29b0e6;--flick:pink;box-sizing:border-box;width:1200px;position:relative;overflow:hidden;display:block;font-family:"PhiHybrid","PhiHybridCondensed","Noto Sans SC","Microsoft YaHei",sans-serif;color:#fff;background:#131719;line-height:normal;}
 .b30-art *, .b30-art *::before, .b30-art *::after{box-sizing:border-box;}
 .b30-art .background{position:absolute;inset:0;z-index:0;display:flex;overflow:hidden;justify-content:center;align-items:center;flex-direction:column;background:#101416;}
 .b30-art .background img{height:100%;min-width:100%;min-height:100%;position:absolute;object-fit:cover;transform:scale(1.2);filter:blur(20px) brightness(50%);z-index:0;}
@@ -1522,4 +1524,7 @@
 .b30-art .background img{z-index:0!important;filter:blur(20px) brightness(72%) saturate(1.12)!important;}
 .b30-art .phi-plugin p{font-size:32px!important;}
 .b30-art .ver p{font-size:18px!important;}
-.b30-art,.b30-art p,.b30-art button,.b30-art input,.b30-art select{font-family:"PhiHybrid","PHI","Noto Sans SC","Microsoft YaHei",sans-serif;}
+.b30-art,.b30-art p,.b30-art button,.b30-art input,.b30-art select{font-family:"PhiHybrid","PhiHybridCondensed","PHI","Noto Sans SC","Microsoft YaHei",sans-serif;}
+
+/* PhiPlugin uses the condensed game face for titles that exceed the normal card width. */
+.b30-art .songname.long-title p{font-family:"SairaExtraCondensed","PhiHybridCondensed","PhiHybrid","PHI",sans-serif;font-size:14px;line-height:1.04;letter-spacing:0;white-space:normal;overflow:visible;text-overflow:clip;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;}
