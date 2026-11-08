@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { toBlob } from "html-to-image";
 import type { ChartRecord } from "../data/types";
 import { buildB30Model, type B30Model, type RksEntry } from "../core/rks";
@@ -26,6 +26,7 @@ const artUrl = (songId: string, branch: "illustrationLowRes" | "illustrationBlur
 const rawArtUrl = (songId: string, branch: "illustrationLowRes" | "illustrationBlur" | "illustration" = "illustrationLowRes") => `${rawResource}/${branch}/${encodeURIComponent(songId)}.png`;
 const avatarUrl = (avatar: string) => `${resourceCdn}@avatar/${encodeURIComponent(avatar)}.png`;
 const rawAvatarUrl = (avatar: string) => `${rawResource}/avatar/${encodeURIComponent(avatar)}.png`;
+const localAvatarUrl = (avatar: string) => `/assets/avatars/${encodeURIComponent(avatar)}.png`;
 const placeholderArt = "/assets/phi-plugin/otherimg/phigros.png";
 const placeholderAvatar = "/assets/phi-plugin/otherimg/Introduction.png";
 const dataIcon = "/assets/phi-plugin/otherimg/data.png";
@@ -107,9 +108,20 @@ const loadArtwork = (songId: string, difficulty?: string, blur = false) => {
   return loadAnyImage(preferred, fallback);
 };
 
+const normalizeAvatar = (avatar: string | null) => {
+  if (!avatar) return "Introduction";
+  if (/^https?:\/\//.test(avatar)) return avatar;
+  if (avatar === "Cipher : /2&//<|0") return "Cipher1";
+  if (avatar === "Oblivion: PHIN") return "OblivionPHIN";
+  return avatar;
+};
+
 const loadAvatar = (avatar: string | null) => {
-  const preferred = avatar ? /^https?:\/\//.test(avatar) ? [avatar] : [avatarUrl(avatar), rawAvatarUrl(avatar)] : [];
-  return loadAnyImage(preferred, [placeholderAvatar, avatarUrl("Introduction"), rawAvatarUrl("Introduction")]);
+  const normalized = normalizeAvatar(avatar);
+  const preferred = /^https?:\/\//.test(normalized)
+    ? [normalized]
+    : [localAvatarUrl(normalized), avatarUrl(normalized), rawAvatarUrl(normalized)];
+  return loadAnyImage(preferred, [localAvatarUrl("Introduction"), placeholderAvatar, avatarUrl("Introduction"), rawAvatarUrl("Introduction")]);
 };
 
 async function mapConcurrent<T, R>(items: T[], limit: number, mapper: (item: T, index: number) => Promise<R>) {
@@ -146,7 +158,7 @@ const formatDate = (value: string | null) => {
   return Number.isNaN(date.getTime()) ? value : date.toISOString().replace("T", " ").replace(/\.\d{3}Z$/, " UTC");
 };
 
-const visibleEntriesFor = (model: B30Model) => [...model.selectedEntries, ...model.overflowEntries.slice(0, 3)];
+const visibleEntriesFor = (model: B30Model) => [...model.selectedEntries, ...model.overflowEntries.slice(0, 6)];
 const averageKey = (entry: RksEntry) => `${/\.\d+$/.test(entry.record.songId) ? entry.record.songId : `${entry.record.songId}.0`}:${entry.chart.difficulty}`;
 
 function Radar({ analysis }: { analysis: B30TagAnalysis | null }) {
@@ -224,7 +236,11 @@ function Header({ profile, fetchedAt, charts, records, avatar }: { profile: Prop
   const stats = buildStats(charts, records);
   const challenge = profile?.challengeModeRank ?? null;
   const tier = challenge === null ? 0 : Math.max(0, Math.min(5, Math.floor(challenge / 100)));
-  return <div className="title"><div className="playerInfo"><div className="blackBlock clip-box" /><div className="avatar clip-box"><SourceImage sources={[avatar || placeholderAvatar, placeholderAvatar]} alt="avatar" crossOrigin="anonymous" /></div><div className="playerId"><p>{profile?.playerName || profile?.playerId || "PLAYER"}</p></div><div className="rks clip-box"><p>{profile?.rks == null ? "—" : profile.rks.toFixed(4)}</p></div><div className="clgBox"><div className="Challenge"><img src={challengeAssets[tier]} alt="Challenge" /><p>{challenge === null ? "—" : challenge % 100}</p></div></div><div className="date"><p>{formatDate(profile?.updatedAt || fetchedAt)}</p></div><div className="dataBox clip-box"><img src={dataIcon} alt="data" /><p>{profile?.data || ""}</p></div>{profile?.gameVersion && <div className="spInfoBox"><div className="spInfo colorful-background clip-box"><p>{profile.gameVersion}</p></div></div>}</div><div className="recordInfo clip-box"><div className="whiteLine clip-box" /><div className="sheet">{["\\", "C", "FC", "Phi"].map((label, row) => <div className="row" key={label}><div className="poz"><p>{label}</p></div>{stats.map((stat) => <div className="poz" key={stat.title}><p>{row === 0 ? stat.title : row === 1 ? stat.cleared : row === 2 ? stat.fc : stat.phi}</p></div>)}</div>)}</div></div></div>;
+  const versionLabel = profile?.gameVersion || "";
+  const versionText = profile?.gameVersionCode != null && versionLabel && String(profile.gameVersionCode) !== versionLabel
+    ? `${profile.gameVersionCode} later than ${versionLabel}`
+    : versionLabel;
+  return <div className="title"><div className="playerInfo"><div className="blackBlock clip-box" /><div className="avatar clip-box"><SourceImage sources={[avatar || localAvatarUrl("Introduction"), localAvatarUrl("Introduction"), placeholderAvatar]} alt="avatar" crossOrigin="anonymous" /></div><div className="playerId"><p>{profile?.playerName || profile?.playerId || "PLAYER"}</p></div><div className="rks clip-box"><p>{profile?.rks == null ? "—" : profile.rks.toFixed(4)}</p></div><div className="clgBox"><div className="Challenge"><img src={challengeAssets[tier]} alt="Challenge" /><p>{challenge === null ? "—" : challenge % 100}</p></div></div><div className="date"><p>{formatDate(profile?.updatedAt || fetchedAt)}</p></div><div className="dataBox clip-box"><img src={dataIcon} alt="data" /><p>{profile?.data || ""}</p></div>{versionText && <div className="spInfoBox"><div className="spInfo colorful-background clip-box"><p>{versionText}</p></div></div>}</div><div className="recordInfo clip-box"><div className="whiteLine clip-box" /><div className="sheet">{["\\", "C", "FC", "Phi"].map((label, row) => <div className="row" key={label}><div className="poz"><p>{label}</p></div>{stats.map((stat) => <div className="poz" key={stat.title}><p>{row === 0 ? stat.title : row === 1 ? stat.cleared : row === 2 ? stat.fc : stat.phi}</p></div>)}</div>)}</div></div></div>;
 }
 
 export default function B30Generator({ charts, records, profile, fetchedAt, cloud, onLoaded, onAccountChange }: Props) {
@@ -274,13 +290,40 @@ export default function B30Generator({ charts, records, profile, fetchedAt, clou
         ]);
       }
       if (!cancelled && renderVersion.current === version) {
-        const vividBackground = arts[9] ?? arts[1] ?? arts.find((source) => source !== placeholderArt) ?? background;
+        const vividBackground = background !== placeholderArt
+          ? background
+          : arts.find((source) => source !== placeholderArt) ?? placeholderArt;
         setAssets({ arts, ranks, background: vividBackground, avatar });
         setStatus("ready");
       }
     });
     return () => { cancelled = true; };
   }, [visibleEntries, profile?.avatar]);
+
+  // PhiPlugin's pvis pass shrinks each title against its real card width.  Do
+  // the same after the game font and artwork have settled so exports do not
+  // replace long song names with an ellipsis or wrap the footer labels.
+  useLayoutEffect(() => {
+    if (status !== "ready" || !artRef.current) return;
+    let frame = window.requestAnimationFrame(() => {
+      artRef.current?.querySelectorAll<HTMLElement>(".songname p").forEach((element) => {
+        const parent = element.parentElement;
+        if (!parent) return;
+        const baseSize = element.parentElement?.classList.contains("long-title") ? 14 : 15;
+        element.style.whiteSpace = "nowrap";
+        element.style.display = "block";
+        element.style.overflow = "visible";
+        element.style.textOverflow = "clip";
+        let size = baseSize;
+        element.style.fontSize = `${size}px`;
+        while (size > 8 && element.scrollWidth > parent.clientWidth + 1) {
+          size -= 0.25;
+          element.style.fontSize = `${size}px`;
+        }
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [status, visibleEntries, assets]);
 
   const download = async () => {
     if (!artRef.current || status !== "ready" || exporting) return;

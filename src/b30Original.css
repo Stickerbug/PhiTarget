@@ -1514,17 +1514,19 @@
 .b30-art .b19{flex:0 0 auto;}
 .b30-art .b30-analysis-row{flex:0 0 auto;}
 .b30-art .tag-radar-placeholder{height:156px;}
-.b30-art .songname p{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;}
+.b30-art .songname p{overflow:visible;text-overflow:clip;white-space:nowrap;max-width:none;display:block;}
 .b30-art .accAvg{z-index:4;}
 .b30-art .accAvgLine{z-index:0;}
 .b30-art .accAvg svg,.b30-art .accAvg p{position:relative;z-index:1;}
 .b30-art .createdbox{margin-top:5%;margin-bottom:1%;}
 .b30-art .copyright{margin-bottom:4%;}
 .b30-art .background{z-index:0!important;}
-.b30-art .background img{z-index:0!important;filter:blur(20px) brightness(72%) saturate(1.12)!important;}
+.b30-art .background img{z-index:0!important;filter:blur(20px) brightness(50%)!important;}
 .b30-art .phi-plugin p{font-size:32px!important;}
 .b30-art .ver p{font-size:18px!important;}
 .b30-art,.b30-art p,.b30-art button,.b30-art input,.b30-art select{font-family:"PhiHybrid","PhiHybridCondensed","PHI","Noto Sans SC","Microsoft YaHei",sans-serif;}
-
-/* PhiPlugin uses the condensed game face for titles that exceed the normal card width. */
-.b30-art .songname.long-title p{font-family:"SairaExtraCondensed","PhiHybridCondensed","PhiHybrid","PHI",sans-serif;font-size:14px;line-height:1.04;letter-spacing:0;white-space:normal;overflow:visible;text-overflow:clip;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;}
+.b30-art .songname.long-title p{font-family:"SairaExtraCondensed","PhiHybridCondensed","PhiHybrid","PHI",sans-serif;font-size:14px;line-height:1;letter-spacing:0;white-space:nowrap;overflow:visible;text-overflow:clip;display:block;}
+.b30-art .over_flow>p,.b30-art .over_flow>p i,.b30-art .createdbox,.b30-art .createdbox p,.b30-art .copyright p{white-space:nowrap;}
+.b30-art .createdbox{flex-wrap:nowrap;}
+.b30-art .avatar{width:128px;flex:0 0 128px;}
+.b30-art .avatar img{width:128px;height:128px;object-fit:cover;display:block;}

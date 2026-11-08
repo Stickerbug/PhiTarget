@@ -26,6 +26,8 @@ export type PhigrosCloudProfile = {
   updatedAt: string | null;
   avatar: string | null;
   data: string | null;
+  /** Numeric save version used by PhiPlugin for the "later than" badge. */
+  gameVersionCode: number | null;
   gameVersion: string | null;
 };
 
@@ -105,6 +107,17 @@ export function parsePhigrosCloudSave(value: unknown, charts: ChartRecord[], fet
   }
   const records = [...recordsByChart.values()];
   records.sort((a, b) => b.score - a.score || a.songId.localeCompare(b.songId));
+  const gameVersionCode = asNumber(summary.gameVersion) ?? asNumber(saveInfo.gameVersion) ?? asNumber(payload.gameVersion);
+  const gameVersion = text(summary.version)
+    || text(summary.clientVersion)
+    || text(saveInfo.version)
+    || text(payload.version)
+    || text(summary.gameVersion)
+    || text(saveInfo.gameVersion)
+    || text(payload.gameVersion)
+    // Current PhiPlugin resources identify the current client as 4.0.1.1;
+    // old cloud saves keep only the numeric code (for example 150).
+    || (gameVersionCode !== null ? "4.0.1.1" : null);
   return {
     records,
     profile: {
@@ -115,7 +128,8 @@ export function parsePhigrosCloudSave(value: unknown, charts: ChartRecord[], fet
       updatedAt: text(summary.updatedAt) || text(modifiedAt.iso) || null,
       avatar: text(summary.avatar) || text(gameUser.avatar) || null,
       data: formatGameData(gameProgress.money),
-      gameVersion: text(summary.gameVersion) || text(summary.version) || text(summary.clientVersion) || text(saveInfo.gameVersion) || text(payload.gameVersion) || null,
+      gameVersionCode,
+      gameVersion,
     },
     fetchedAt,
   };
