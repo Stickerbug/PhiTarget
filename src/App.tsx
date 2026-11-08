@@ -2,7 +2,8 @@ import { Fragment, useDeferredValue, useEffect, useMemo, useRef, useState } from
 import type { CSSProperties } from "react";
 import { nearestReachableScores, type ReachableScoreAnalysis, type ReachabilityMode } from "./core/reachable";
 import type { ChartConstraintProfile, ChartDataset, ChartRecord } from "./data/types";
-import { chapterArtworkFor } from "./data/chapterArtwork";
+import { chapterArtwork } from "./data/chapterArtwork";
+import { ArtworkImage, artworkSources, SourceImage } from "./components/ArtworkImage";
 import ChallengePlanner from "./components/ChallengePlanner";
 import ChallengeScoreReverse from "./components/ChallengeScoreReverse";
 import PlayerProfile from "./components/PlayerProfile";
@@ -20,8 +21,6 @@ type SortMode = keyof typeof sortNames;
 type SortDirection = "asc" | "desc";
 type AppView = "library" | "challengeScore" | "challengePlanner" | "profile" | "b30";
 const sortModes: SortMode[] = ["default", "title", "constant"];
-const resourceCdn = "https://cdn.jsdelivr.net/gh/7aGiven/Phigros_Resource";
-const assetUrl = (songId: string, branch: "illustration" | "illustrationLowRes" | "illustrationBlur") => `${resourceCdn}@${branch}/${encodeURIComponent(songId)}.png`;
 const rankAssets: Record<ScoreRank, string> = { F: "/assets/ranks/F.png", C: "/assets/ranks/C.png", B: "/assets/ranks/B.png", A: "/assets/ranks/A.png", S: "/assets/ranks/S.png", V: "/assets/ranks/V.png", blueV: "/assets/ranks/V-blue.png?v=2", phi: "/assets/ranks/phi.png" };
 const chapterOrder = [
   "单曲精选集", "Chapter Legacy 过去的章节", "Chapter 5 霓虹灯牌", "Chapter 6 方舟蜃景", "Chapter 7 时钟链接", "Chapter 8 凌日潮汐", "Chapter 9 穹顶孤舟",
@@ -66,14 +65,17 @@ function SongRow({ charts, selectedId, onSelect }: { charts: ChartRecord[]; sele
   const active = charts.some((chart) => chart.chartId === selectedId);
   const ordered = [...charts].sort((a, b) => difficultyOrder.indexOf(a.difficulty) - difficultyOrder.indexOf(b.difficulty));
   return <button className={`song-row ${active ? "active" : ""}`} onClick={() => onSelect(charts.find((chart) => chart.chartId === selectedId) ?? first)}>
-    <span className="song-row-art"><img src={assetUrl(first.songId, "illustrationLowRes")} alt="" loading="lazy" decoding="async" /></span>
+    <span className="song-row-art"><ArtworkImage songId={first.songId} branch="illustrationLowRes" alt="" loading="lazy" decoding="async" /></span>
     <span className="song-row-copy"><strong className={first.title.length >= 25 ? "long-title" : undefined}>{first.title}</strong><small>{first.composer || "Unknown composer"}</small></span>
     <span className="song-row-levels">{ordered.map((chart) => <span key={chart.chartId} style={{ gridColumn: difficultyOrder.indexOf(chart.difficulty) + 1 }} className={`song-level difficulty-${chart.difficulty} ${chart.chartId === selectedId ? "selected" : ""}`} onClick={(event) => { event.stopPropagation(); onSelect(chart); }}>{chart.constant?.toFixed(1) ?? "—"}</span>)}</span>
   </button>;
 }
 
-function ChapterCard({ label, art, active, onSelect }: { label: string; art: string; active: boolean; onSelect: () => void }) {
-  return <button className={`chapter-card ${active ? "active" : ""}`} style={{ "--chapter-art": `url("${art}")` } as CSSProperties} aria-pressed={active} aria-label={`选择${label}`} onClick={onSelect}><span><i><ChapterText value={label} /></i></span></button>;
+function ChapterCard({ label, sources, active, onSelect }: { label: string; sources: string[]; active: boolean; onSelect: () => void }) {
+  return <button className={`chapter-card ${active ? "active" : ""}`} aria-pressed={active} aria-label={`选择${label}`} onClick={onSelect}>
+    <SourceImage className="chapter-card-art" sources={sources} alt="" loading="lazy" decoding="async" />
+    <span><i><ChapterText value={label} /></i></span>
+  </button>;
 }
 
 export default function App() {
@@ -185,9 +187,9 @@ export default function App() {
     });
   }, [dataset, goodCap, notes, reachabilityCombo, reachabilityMode, selected?.chartId]);
   const reachableNearby = useMemo(() => reachableState.analysis ? nearestReachableScores(reachableState.analysis.scores, target) : [], [reachableState.analysis, target]);
-  const selectedArt = selected ? assetUrl(selected.songId, "illustration") : "";
-  const selectedBlur = selected ? assetUrl(selected.songId, "illustrationBlur") : "";
-  const chapterArt = chapterArtworkFor(chapter, selectedBlur);
+  const selectedArtSources = selected ? artworkSources(selected.songId, "illustration") : [];
+  const selectedBlur = selected ? artworkSources(selected.songId, "illustrationBlur") : [];
+  const chapterArt = chapterArtwork[chapter] ? `url("${chapterArtwork[chapter]}")` : selectedBlur.map((source) => `url("${source}")`).join(",");
   const chapterOuterLabel = chapterOuterName(chapter);
   const chapterLabel = chapterDetailName(chapter);
   const selectedChapterLabel = selected ? chapterDetailName(selected.chapter) : chapterLabel;
@@ -211,10 +213,10 @@ export default function App() {
   return <main className="app-shell">
     <nav className="app-nav" aria-label="PhiTarget 页面"><button type="button" className={view === "library" ? "active" : ""} onClick={() => setView("library")}><span>曲库</span><small>目标分数</small></button><button type="button" className={view === "challengeScore" ? "active" : ""} onClick={() => setView("challengeScore")}><span>课题分反推</span><small>单曲目标</small></button><button type="button" className={view === "challengePlanner" ? "active" : ""} onClick={() => setView("challengePlanner")}><span>课题三曲</span><small>目标总分</small></button><button type="button" className={view === "profile" ? "active" : ""} onClick={() => setView("profile")}><span>玩家数据</span><small>TapTap 云档</small></button><button type="button" className={view === "b30" ? "active" : ""} onClick={() => setView("b30")}><span>B30 图片</span><small>浏览器生成</small></button></nav>
     {view === "challengeScore" ? <ChallengeScoreReverse charts={charts} /> : view === "challengePlanner" ? <ChallengePlanner charts={charts} playerRecords={playerRecords} playerRks={playerProfile?.rks ?? null} /> : view === "profile" ? <PlayerProfile charts={charts} records={playerRecords} profile={playerProfile} fetchedAt={playerFetchedAt} cloud={cloud} onLoaded={handleCloudLoaded} onAccountChange={clearCloudData} /> : view === "b30" ? <B30Generator charts={charts} records={playerRecords} profile={playerProfile} fetchedAt={playerFetchedAt} cloud={cloud} onLoaded={handleCloudLoaded} onAccountChange={clearCloudData} /> : <>
-    <section className="game-screen" style={chapterArt ? { "--selected-art": `url(${chapterArt})` } as CSSProperties : undefined}>
+    <section className="game-screen" style={chapterArt ? { "--selected-art": chapterArt } as CSSProperties : undefined}>
       <div className="network-lines" />
       <header className="game-header"><div className="game-header-title"><small><ChapterText value={chapterOuterLabel} /></small><strong><ChapterText value={chapterLabel} /></strong></div><div className="player-chip"><span className="player-level">40</span></div></header>
-      <div className="chapter-strip"><ChapterCard label="Phigros" art={chapterArtworkFor("all", chapterCards[0]?.chart ? assetUrl(chapterCards[0].chart.songId, "illustrationBlur") : selectedBlur)} active={chapter === "all"} onSelect={() => setChapter("all")} />{chapterCards.map(({ name, chart }) => <ChapterCard key={name} label={chapterOuterName(name)} art={chapterArtworkFor(name, assetUrl(chart.songId, "illustrationBlur"))} active={chapter === name} onSelect={() => setChapter(name)} />)}</div>
+      <div className="chapter-strip"><ChapterCard label="Phigros" sources={chapterArtwork.all ? [chapterArtwork.all] : chapterCards[0]?.chart ? artworkSources(chapterCards[0].chart.songId, "illustrationBlur") : selectedBlur} active={chapter === "all"} onSelect={() => setChapter("all")} />{chapterCards.map(({ name, chart }) => <ChapterCard key={name} label={chapterOuterName(name)} sources={chapterArtwork[name] ? [chapterArtwork[name]] : artworkSources(chart.songId, "illustrationBlur")} active={chapter === name} onSelect={() => setChapter(name)} />)}</div>
       <div className="game-content">
         <aside className="song-browser">
           <div className="sort-panel"><div><small>歌曲列表</small><strong><ChapterText value={chapterLabel} /></strong></div><div className="sort-control"><button className="sort-cycle" type="button" onClick={cycleSort}><span>排序</span><strong>{sortNames[sortMode]}</strong></button><button className="sort-direction" type="button" onClick={toggleDirection} aria-label={sortDirection === "asc" ? "升序" : "降序"}>{sortDirection === "asc" ? "↑" : "↓"}</button></div></div>
@@ -233,7 +235,7 @@ export default function App() {
                 </div>
                 <div className="song-meta-grid"><div><b>BPM</b><span>{selected.bpm || "—"}</span></div><div><b>Length</b><span>{selected.duration || "—"}</span></div><div><b>Composer</b><span>{selected.composer || "—"}</span></div><div><b>Illustrator</b><span>{selected.illustrator || "—"}</span></div><div><b>Chapter</b><span><ChapterText value={selectedChapterLabel} /></span></div></div>
               </div>
-              <div className="art-frame"><img src={selectedArt} alt={`${selected.title} 曲绘`} loading="eager" decoding="async" fetchPriority="high" /></div>
+              <div className="art-frame"><SourceImage sources={selectedArtSources} alt={`${selected.title} 曲绘`} loading="eager" decoding="async" fetchPriority="high" /></div>
             </div>
             <div className="difficulty-switch">{selectedSongCharts.map((chart) => <button key={chart.chartId} className={chart.chartId === selected.chartId ? `active difficulty-${chart.difficulty}` : ""} onClick={() => { setSelectedId(chart.chartId); setSelectedDifficulty(chart.difficulty); }}><b>{chart.constant?.toFixed(1) ?? "—"}</b><small>{difficultyName[chart.difficulty]}</small></button>)}</div>
             <div className="score-strip"><span className="target-score">{number.format(target)}<small>目标分数</small></span><span><b>{number.format(selected.noteCount ?? 0)}</b><small>NOTES</small></span><span><b>{selected.constant?.toFixed(1) ?? "—"}</b><small>定数</small></span><span className="rank-mark"><img src={rankAssets[rankForScore(target)]} alt={rankForScore(target) === "phi" ? "Phi" : rankForScore(target)} /></span></div>

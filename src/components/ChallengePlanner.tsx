@@ -2,15 +2,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChallengeCombinationMatch, ChallengeCombinationPlan } from "../core/challenge";
 import type { PhigrosCloudRecord } from "../core/phigrosCloud";
 import type { ChartRecord } from "../data/types";
+import { ArtworkImage } from "./ArtworkImage";
 
 const number = new Intl.NumberFormat("en-US");
 const difficultyOrder = ["ez", "hd", "in", "at"];
 const difficultyName: Record<string, string> = { ez: "EZ", hd: "HD", in: "IN", at: "AT" };
-const resourceCdn = "https://cdn.jsdelivr.net/gh/7aGiven/Phigros_Resource";
 
 type Props = { charts: ChartRecord[]; playerRecords: PhigrosCloudRecord[]; playerRks: number | null };
-
-const artUrl = (songId: string) => `${resourceCdn}@illustrationLowRes/${encodeURIComponent(songId)}.png`;
 
 function PlanCard({ plan, target }: { plan: ChallengeCombinationPlan; target: number }) {
   const margin = plan.totalScore - target;
@@ -18,7 +16,7 @@ function PlanCard({ plan, target }: { plan: ChallengeCombinationPlan; target: nu
     <header><div><small>{plan.personal ? "TapTap 当前合计" : "模型合计"}</small><strong>{number.format(plan.totalScore)}</strong></div><div><small>目标课题分</small><strong>{number.format(target)}</strong></div><span className={`plan-margin ${margin < 0 ? "under" : ""}`}>{margin >= 0 ? "+" : ""}{number.format(margin)}</span></header>
     <p className="challenge-personal-summary">{plan.personal ? "使用已连接云档中的三张已游玩谱面" : "每曲按接近总分三等分的数量模型估算"} · 定数和 {plan.levelTotal} · 定数跨度 {plan.constantSpread.toFixed(1)}</p>
     <div className="challenge-plan-songs">{plan.charts.map((chart, index) => <div className="challenge-plan-song" key={chart.chartId}>
-      <img src={artUrl(chart.songId)} alt="" loading="lazy" decoding="async" />
+      <ArtworkImage songId={chart.songId} branch="illustrationLowRes" alt="" loading="lazy" decoding="async" />
       <div><strong>{chart.title}</strong><small>{difficultyName[chart.difficulty] ?? chart.difficulty.toUpperCase()} {chart.constant?.toFixed(1) ?? "—"} · {chart.composer || "—"}</small><span>目标 {number.format(plan.targetScores[index])}　贡献 {number.format(plan.actualScores[index])}</span><em>{chart.chapter}</em></div>
     </div>)}</div>
   </article>;
