@@ -159,7 +159,13 @@ export async function fetchB30AccAverages(records: PhigrosCloudRecord[], signal?
     const result: B30AverageMap = new Map();
     Object.entries(json.data ?? {}).forEach(([songId, byDifficulty]) => {
       Object.entries(byDifficulty ?? {}).forEach(([difficulty, value]) => {
-        if (typeof value?.accAvg === "number" && Number.isFinite(value.accAvg)) result.set(`${songId}:${difficulty.toLowerCase()}`, value.accAvg);
+        // PhiPlugin's API has returned both `{ accAvg, count }` objects and
+        // compact `[accAvg, count]` tuples over time. Accept both forms so the
+        // original green/red comparison pill is preserved when the endpoint
+        // uses the compact response.
+        const compact = Array.isArray(value) ? Number(value[0]) : null;
+        const average = compact !== null && Number.isFinite(compact) ? compact : typeof value?.accAvg === "number" ? value.accAvg : null;
+        if (average !== null && Number.isFinite(average)) result.set(`${songId}:${difficulty.toLowerCase()}`, average);
       });
     });
     return result;

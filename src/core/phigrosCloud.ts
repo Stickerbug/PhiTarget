@@ -1,7 +1,9 @@
 import type { ChartRecord } from "../data/types";
 
 const PHIB19_API = "https://phib19.top:8080";
-const tokenPattern = /^[0-9A-Za-z]{25}$/;
+// PhiHub deployments in the wild currently use both 24- and 25-character
+// session tokens. Accept either form; the server remains the authority.
+const tokenPattern = /^[0-9A-Za-z]{24,25}$/;
 const difficulties = ["ez", "hd", "in", "at"] as const;
 
 export type PhigrosCloudRecord = {
@@ -113,7 +115,7 @@ export function parsePhigrosCloudSave(value: unknown, charts: ChartRecord[], fet
       updatedAt: text(summary.updatedAt) || text(modifiedAt.iso) || null,
       avatar: text(summary.avatar) || text(gameUser.avatar) || null,
       data: formatGameData(gameProgress.money),
-      gameVersion: text(summary.gameVersion) || null,
+      gameVersion: text(summary.gameVersion) || text(summary.version) || text(summary.clientVersion) || text(saveInfo.gameVersion) || text(payload.gameVersion) || null,
     },
     fetchedAt,
   };
@@ -121,7 +123,7 @@ export function parsePhigrosCloudSave(value: unknown, charts: ChartRecord[], fet
 
 export async function fetchPhigrosCloudSave(token: string, isGlobal: boolean, charts: ChartRecord[], signal?: AbortSignal): Promise<PhigrosCloudData> {
   const normalizedToken = token.trim();
-  if (!tokenPattern.test(normalizedToken)) throw new Error("sessionToken 应为 25 位字母数字字符串");
+  if (!tokenPattern.test(normalizedToken)) throw new Error("sessionToken 应为 24 或 25 位字母数字字符串");
   const response = await fetch(`${PHIB19_API}/get/cloud/saves`, {
     method: "POST",
     credentials: "omit",
