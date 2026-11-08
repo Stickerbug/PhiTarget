@@ -56,5 +56,16 @@ describe("RKS and B30 model", () => {
     expect(model.b30Rks).not.toBeNull();
     expect(model.overflowEntries).toHaveLength(1);
   });
+
+  it("supports a configurable B count while keeping Phi separate", () => {
+    const charts = Array.from({ length: 12 }, (_, index) => chart(`custom-${index}`, 12 + index / 10));
+    const records = charts.map((item, index) => record(item.chartId, index < 3 ? 1_000_000 : 990_000 - index * 100, index < 3 ? 100 : 99, index < 3));
+    const model = buildB30Model(charts, records, 5);
+    expect(model.bestCount).toBe(5);
+    expect(model.phiEntries).toHaveLength(3);
+    expect(model.bestEntries).toHaveLength(5);
+    expect(model.selectedEntries).toHaveLength(8);
+    expect(model.b30Rks).toBeCloseTo(model.selectedEntries.reduce((sum, entry) => sum + entry.singleRks, 0) / 8);
+  });
 });
 

@@ -12,6 +12,10 @@ export type RksEntry = {
 export type B30Model = {
   entries: RksEntry[];
   phiEntries: RksEntry[];
+  /** The requested number of non-Phi best scores (B27 by default). */
+  bestCount: number;
+  bestEntries: RksEntry[];
+  /** Backwards-compatible alias used by the original B30 template. */
   b27Entries: RksEntry[];
   selectedEntries: RksEntry[];
   overflowEntries: RksEntry[];
@@ -46,7 +50,8 @@ export function recordAccuracy(record: PhigrosCloudRecord): number | null {
   return record.accuracy ?? (record.score >= 1_000_000 ? 100 : null);
 }
 
-export function buildB30Model(charts: ChartRecord[], records: PhigrosCloudRecord[]): B30Model {
+export function buildB30Model(charts: ChartRecord[], records: PhigrosCloudRecord[], requestedBestCount = 27): B30Model {
+  const bestCount = Math.max(0, Math.min(500, Math.trunc(Number.isFinite(requestedBestCount) ? requestedBestCount : 27)));
   const chartById = new Map(charts.map((chart) => [chart.chartId, chart]));
   const entries: RksEntry[] = [];
   let missingAccuracy = 0;
@@ -64,19 +69,21 @@ export function buildB30Model(charts: ChartRecord[], records: PhigrosCloudRecord
   entries.sort((a, b) => b.singleRks - a.singleRks || b.record.score - a.record.score || a.chart.title.localeCompare(b.chart.title));
   const phiEntries = entries.filter((entry) => entry.phi).slice(0, 3);
   const phiIds = new Set(phiEntries.map((entry) => entry.record.chartId));
-  const b27Entries = entries.filter((entry) => !phiIds.has(entry.record.chartId)).slice(0, 27);
-  const selectedEntries = [...phiEntries, ...b27Entries];
+  const bestEntries = entries.filter((entry) => !phiIds.has(entry.record.chartId)).slice(0, bestCount);
+  const selectedEntries = [...phiEntries, ...bestEntries];
   const selectedSum = selectedEntries.reduce((sum, entry) => sum + entry.singleRks, 0);
   const overflowEntries = entries.filter((entry) => !selectedEntries.includes(entry));
   return {
     entries,
     phiEntries,
-    b27Entries,
+    bestCount,
+    bestEntries,
+    b27Entries: bestEntries,
     selectedEntries,
     overflowEntries,
-    b30Rks: selectedEntries.length >= 30 ? selectedSum / 30 : null,
+    b30Rks: selectedEntries.length >= 3 + bestCount ? selectedSum / (3 + bestCount) : null,
     partialAverage: selectedEntries.length ? selectedSum / selectedEntries.length : null,
-    complete: selectedEntries.length >= 30,
+    complete: selectedEntries.length >= 3 + bestCount,
     missingAccuracy,
   };
 }

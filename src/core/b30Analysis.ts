@@ -50,6 +50,7 @@ const API = "https://phib19.top:8080";
 export function getB30AnalysisRecords(model: {
   phiEntries: { chart: ChartRecord; record: PhigrosCloudRecord; singleRks: number }[];
   b27Entries: { chart: ChartRecord; record: PhigrosCloudRecord; singleRks: number }[];
+  bestCount?: number;
 }): B30AnalysisRecord[] {
   const phi = model.phiEntries.slice(0, 3).map((entry, index) => ({
     chart: entry.chart,
@@ -58,7 +59,7 @@ export function getB30AnalysisRecords(model: {
     kind: "phi" as const,
     slot: `P${index + 1}`,
   }));
-  const best = model.b27Entries.slice(0, 27).map((entry, index) => ({
+  const best = model.b27Entries.slice(0, model.bestCount ?? 27).map((entry, index) => ({
     chart: entry.chart,
     record: entry.record,
     rks: entry.singleRks,

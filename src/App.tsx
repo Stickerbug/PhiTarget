@@ -7,7 +7,6 @@ import { ArtworkImage, artworkSources, SourceImage } from "./components/ArtworkI
 import ChallengePlanner from "./components/ChallengePlanner";
 import ChallengeScoreReverse from "./components/ChallengeScoreReverse";
 import PlayerProfile from "./components/PlayerProfile";
-import B30Generator from "./components/B30Generator";
 import ControlAnalysis from "./components/ControlAnalysis";
 import type { PhigrosCloudData, PhigrosCloudRecord } from "./core/phigrosCloud";
 import { rankForScore, type ScoreRank } from "./core/ranks";
@@ -19,7 +18,7 @@ const difficultyName: Record<string, string> = { ez: "EZ", hd: "HD", in: "IN", a
 const sortNames = { default: "默认", title: "曲名", constant: "定数" } as const;
 type SortMode = keyof typeof sortNames;
 type SortDirection = "asc" | "desc";
-type AppView = "library" | "challengeScore" | "challengePlanner" | "profile" | "b30";
+type AppView = "library" | "challengeScore" | "challengePlanner" | "profile";
 const sortModes: SortMode[] = ["default", "title", "constant"];
 const rankAssets: Record<ScoreRank, string> = { F: "/assets/ranks/F.png", C: "/assets/ranks/C.png", B: "/assets/ranks/B.png", A: "/assets/ranks/A.png", S: "/assets/ranks/S.png", V: "/assets/ranks/V.png", blueV: "/assets/ranks/V-blue.png?v=2", phi: "/assets/ranks/phi.png" };
 const chapterOrder = [
@@ -208,11 +207,21 @@ export default function App() {
     setPlayerFetchedAt(data.fetchedAt);
   };
 
+  // A remembered account restores its latest browser snapshot immediately;
+  // syncing is only needed when the player explicitly asks for fresh data.
+  useEffect(() => {
+    if (cloud.cachedData) {
+      handleCloudLoaded(cloud.cachedData);
+    } else if (cloud.activeAccountId) {
+      clearCloudData();
+    }
+  }, [cloud.activeAccountId, cloud.cachedData]);
+
   if (!dataset) return <main className="loading-screen"><span className="loading-mark">Φ</span><p>正在读取曲库索引…</p></main>;
 
   return <main className="app-shell">
-    <nav className="app-nav" aria-label="PhiTarget 页面"><button type="button" className={view === "library" ? "active" : ""} onClick={() => setView("library")}><span>曲库</span><small>目标分数</small></button><button type="button" className={view === "challengeScore" ? "active" : ""} onClick={() => setView("challengeScore")}><span>课题分反推</span><small>单曲目标</small></button><button type="button" className={view === "challengePlanner" ? "active" : ""} onClick={() => setView("challengePlanner")}><span>课题三曲</span><small>目标总分</small></button><button type="button" className={view === "profile" ? "active" : ""} onClick={() => setView("profile")}><span>玩家数据</span><small>TapTap 云档</small></button><button type="button" className={view === "b30" ? "active" : ""} onClick={() => setView("b30")}><span>B30 图片</span><small>浏览器生成</small></button></nav>
-    {view === "challengeScore" ? <ChallengeScoreReverse charts={charts} /> : view === "challengePlanner" ? <ChallengePlanner charts={charts} playerRecords={playerRecords} playerRks={playerProfile?.rks ?? null} /> : view === "profile" ? <PlayerProfile charts={charts} records={playerRecords} profile={playerProfile} fetchedAt={playerFetchedAt} cloud={cloud} onLoaded={handleCloudLoaded} onAccountChange={clearCloudData} /> : view === "b30" ? <B30Generator charts={charts} records={playerRecords} profile={playerProfile} fetchedAt={playerFetchedAt} cloud={cloud} onLoaded={handleCloudLoaded} onAccountChange={clearCloudData} /> : <>
+    <nav className="app-nav" aria-label="PhiTarget 页面"><button type="button" className={view === "library" ? "active" : ""} onClick={() => setView("library")}><span>曲库</span><small>目标分数</small></button><button type="button" className={view === "challengeScore" ? "active" : ""} onClick={() => setView("challengeScore")}><span>课题分反推</span><small>单曲目标</small></button><button type="button" className={view === "challengePlanner" ? "active" : ""} onClick={() => setView("challengePlanner")}><span>课题三曲</span><small>目标总分</small></button><button type="button" className={view === "profile" ? "active" : ""} onClick={() => setView("profile")}><span>玩家数据</span><small>TapTap 云档</small></button></nav>
+    {view === "challengeScore" ? <ChallengeScoreReverse charts={charts} /> : view === "challengePlanner" ? <ChallengePlanner charts={charts} playerRecords={playerRecords} playerRks={playerProfile?.rks ?? null} /> : view === "profile" ? <PlayerProfile charts={charts} records={playerRecords} profile={playerProfile} fetchedAt={playerFetchedAt} cloud={cloud} onLoaded={handleCloudLoaded} onAccountChange={clearCloudData} /> : <>
     <section className="game-screen" style={chapterArt ? { "--selected-art": chapterArt } as CSSProperties : undefined}>
       <div className="network-lines" />
       <header className="game-header"><div className="game-header-title"><small><ChapterText value={chapterOuterLabel} /></small><strong><ChapterText value={chapterLabel} /></strong></div><div className="player-chip"><span className="player-level">40</span></div></header>
